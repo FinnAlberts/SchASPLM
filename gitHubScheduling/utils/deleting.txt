@@ -1,5 +1,0 @@
-To delete things from the cache:
-
-Open a terminal (just in VS Code)
-cd ~/.cache/huggingface/hub
-rm -rf
