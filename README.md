@@ -1,6 +1,7 @@
 # SchASPLM
 This repository contains our latest results on autoformalising ASP programs for Scheduling Problems using LLMs. We investigate different LLMs capabilities of generating ASP-programs for different scheduling problems. We look at the performance of the models by themselves, as well as a combination of chain-of-thought and few-shot prompting. 
 
+This code is output from the AINed-project LogicLM, a first version was written by Bart Van Gool.
 ## System Input
 The system is set up to take the following inputs about the problem:
 
