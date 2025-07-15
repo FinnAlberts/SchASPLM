@@ -1,0 +1,54 @@
+```asp
+% Hard Constraints
+
+% Students must not have overlapping events
+:- student(S), event(E1), event(E2), E1!= E2, 
+   assigned(E1, TS, R), assigned(E2, TS, _), attends(S, E1), attends(S, E2).
+%Correct
+
+% The amount of students in a room at the same time should not exceed the capacity of the room
+:- room(R), capacity(R, C), timeslot(TS), 
+   #count{S: student(S), attends(S, E), assigned(E, TS, R)} > C.
+ %Correct
+
+% Rooms must have the required features for the event
+:- event(E), feature(F), requires(E, F), room(R), 
+   not has_feature(R, F), assigned(E, _, R).
+ %Correct
+
+% There must be no more than one event in a room at a time
+:- room(R), timeslot(TS), event(E1), event(E2), E1!= E2, 
+   assigned(E1, TS, R), assigned(E2, TS, R).
+   %Correct 
+
+% Events may only be scheduled in designated timeslots
+:- event(E), timeslot(TS), not allowed_timeslot(E, TS), assigned(E, TS, _).
+ %Correct
+
+% Some events must be scheduled in a specific order
+:- event(E1), event(E2), precedence(E1, E2), 
+   timeslot(TS1), timeslot(TS2), TS1 >= TS2, assigned(E1, TS1, _), assigned(E2, TS2, _).
+ %Correct
+
+% Soft Constraints
+
+% Students should not have events scheduled in the last timeslot of the day
+penalty(S) :- student(S), event(E), attends(S, E), assigned(E, TS, _), day(TS, D), hour(TS, 9).
+%Correct
+
+% Students should not have events scheduled in three or more consecutive timeslots
+penalty(S) :- student(S), event(E1), event(E2), event(E3), attends(S, E1), attends(S, E2), attends(S, E3), 
+             assigned(E1, TS1, _), assigned(E2, TS2, _), assigned(E3, TS3, _), 
+             day(TS1, D), day(TS2, D), day(TS3, D), hour(TS1, H1), hour(TS2, H2), hour(TS3, H3), 
+             H2 = H1 + 1, H3 = H2 + 1.
+%Correct
+
+% Students should not have exactly one event in a day
+penalty(S, D) :- student(S), event(E), attends(S, E), assigned(E, TS, _), day(TS, D), 
+              not event(E2), attends(S, E2), assigned(E2, TS2, _), day(TS2, D), E2!= E.
+%wrong
+
+% Generator
+assigned(E, TS, R) | not_assigned(E, TS, R) :- event(E), timeslot(TS), room(R).
+%In principle correct
+```
