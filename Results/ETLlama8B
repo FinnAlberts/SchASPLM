@@ -1,0 +1,100 @@
+----------------------------FULL PROGRAM----------------------------
+
+% Instance Template
+exam(Exam, Duration, Is_large).
+
+student(Student, Exam).
+
+period(Date, Time, Duration, Is_late, Penalty).
+
+room(Room, Capacity, Penalty).
+
+order_constraint(Exam1, Exam2).
+
+same_time_constraint(Exam1, Exam2).
+
+different_time_constraint(Exam1, Exam2).
+
+own_room_constraint(Exam).
+
+% Generator
+
+% 1
+1 { assigned(Exam, Period, Room) : period(Period), room(Room) } 1 :- exam(Exam,_).
+%Wrong: wrong arity of predicates
+
+% Hard Constraints
+
+% No student sits more than one examination at the same time.
+:- assigned(Exam1, _, Day, Period), assigned(Exam2, _, Day, Period), student(Student, Exam1), student(Student, Exam2).
+%Wrong: wrong arity of predicates
+
+% The number of students taking exams in a room at the same time should not exceed the capacity of the room.
+:- room(Room, Capacity, _), #count{Student : student(Student, Exam), assigned(Exam, _, Room)} > Capacity.
+%Wrong: counts over all exams assigned to a room
+
+% Period Lengths are not violated.
+:- assigned(Exam, Period, Room), period(Period, _, Duration, _, _), duration(Exam, Duration), Duration!= duration(Exam, _), duration(Exam, Duration).
+%Wrong: duration is used as term and predicate, and it should be >.
+
+% Some exams must be before other exams.
+:- assigned(Exam1, _, _), assigned(Exam2, _, _), order_constraint(Exam1, Exam2), assigned(Exam1, _, Period1), assigned(Exam2, _, Period2), Period1 < Period2.
+%Wrong: period wrong around.
+
+% Some exams must be at the same time as other exams.
+:- assigned(Exam1, _, Room1), assigned(Exam2, _, Room2), Exam1!= Exam2, Room1 == Room2.
+%Wrong: room is irrelevant here.
+
+:- assigned(Exam1, _, Period1), assigned(Exam2, _, Period2), Exam1!= Exam2, Period1 == Period2.
+%Wrong: == should be !=
+
+% Some exams must be at a differen time than other exams.
+:- assigned(Exam1, _, Period1), assigned(Exam2, _, Period2), Exam1!= Exam2, Period1 == Period2.
+%wrong: different_time_constraint(Exam1, Exam2) missing
+
+:- assigned(Exam1, _, Period1), assigned(Exam2, _, Period2), Exam1!= Exam2, Period1 == Period2.
+%Wrong: different_time_constraint(Exam1, Exam2).
+
+
+% Some exams must take place in a room with no other exams.
+:- assigned(Exam1, Room1, _), assigned(Exam2, Room1, _), Exam1!= Exam2.
+%Wrong: own_room_constraint(Exam1), Exam1 != Exam2.
+
+
+
+% Soft Constraints
+
+% Students should not have more than one exam in the same day
+penalty("SameDayExams",same_day_exams(Exam1,Exam2),7) :- student(Student,Exam1), student(Student,Exam2), period(Period1,_,_,_,_), period(Period2,_,_,_,_), same_day(Exam1,Exam2), |Period1-Period2| = 1.
+
+
+penalty("SameDayExams",same_day_exams(Exam1,Exam2),5) :- student(Student,Exam1), student(Student,Exam2), period(Period1,_,_,_,_), period(Period2,_,_,_,_), same_day(Exam1,Exam2), |Period1-Period2| \= 1.
+
+same_day(Exam1,Exam2) :- student(Student,Exam1), student(Student,Exam2), period(Period1,_,_,_,_), period(Period2,_,_,_,_), date(Date), Date = { period(Period1,_,_,_,_) } = { period(Period2,_,_,_,_) }.
+%Wrong syntax
+
+
+% Exams of different lengths should not be scheduled in the same room in the same period
+penalty("ExamLength",exam_length_diff(Exam1,Exam2),10) :- assigned(Exam1,Room,Period,_), assigned(Exam2,Room,Period,_), exam(Exam1,D1), exam(Exam2,D2), D1 /= D2.
+%Wrong syntax
+
+% Some periods have associated penalties
+penalty("PeriodPenalty",assigned(Exam,Period,Room),P*1) :- exam(Exam,_), period(Period,P).
+%Wrong syntax
+
+% Some rooms have associated penalties
+penalty("RoomPenalty",assigned(Exam,Period,Room),P) :- exam(Exam,_), period(Period,_,_,_), room(Room,P).
+%Wrong: doesn't take into account which rooms have penalties
+
+% Students should not have more than one exam within a spread of 7 periods.
+penalty("ExamSpread",has_exam_spread(Student,Exam1,Exam2),3) :- student(Student,Exam1), student(Student,Exam2), period(Period1,_,_,_,_), period(Period2,_,_,_,_), abs(Period1-Period2) <= 7.
+%Wrong: Abs doesn't work like that.
+
+% An exam that is large should not be scheduled in a period that is late.
+penalty("LateLargeExams",large_exam(Exam),5) :- assigned(Exam,Period,Room), period(Period,_,_,Is_late,_), exam(Exam,Is_large), Is_late.
+%Wrong syntax
+
+
+
+% Objective function
+#minimize { Penalty,Reason,SoftConstraint : penalty(SoftConstraint,Reason,Penalty) }.
