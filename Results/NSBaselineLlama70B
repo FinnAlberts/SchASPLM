@@ -1,0 +1,38 @@
+```asp
+% Generate assignments of nurses to shifts and days
+1 { assign(N, S, D) : nurse(N), shift_type(S), day(D) } 1 :- nurse(N), day(D), shift_type(S).
+%Wrong: assigns every shift type to every nurse/day
+
+% Hard constraint: Every day, the number of nurses assigned to each shift must be between the specified minimum and maximum
+:- day(D), shift_type(S), nurse_requirements(S, Min, Max), not #count{N : assign(N, S, D)} >= Min, D.
+:- day(D), shift_type(S), nurse_requirements(S, Min, Max), not #count{N : assign(N, S, D)} =< Max, D.
+%Syntx wrong
+
+% Hard constraint: Each nurse must work at least the specified minimum and at most the specified maximum number of hours
+:- nurse(N), work_requirements(Min, Max), not #sum{D, S : assign(N, S, D), shift_type(S, _, Dur) } >= Min * 8, N.
+:- nurse(N), work_requirements(Min, Max), not #sum{D, S : assign(N, S, D), shift_type(S, _, Dur) } =< Max * 8, N.
+%Syntax Wrong
+
+% Hard constraint: Nurses must have exactly 30 days of vacation
+:- nurse(N), not #count{D : assign(N, vacation, D)} = 30, N.
+%Syntax Wrong
+
+% Hard constraint: If a nurse works a night shift, they cannot work a morning or afternoon shift the next day
+:- assign(N, night, D), day(D+1), assign(N, morning, D+1).
+:- assign(N, night, D), day(D+1), assign(N, afternoon, D+1).
+:- assign(N, afternoon, D), day(D+1), assign(N, morning, D+1).
+%Two first constraints are correct, but the third is not mentioned...
+
+% Hard constraint: Each nurse has at least two ordinary rest days for every window of fourteen days
+:- nurse(N), day(D), not #count{D1 : assign(N, rest, D1), D =< D1, D1 =< D+13 } >= 2, N, D+14 =< 30.
+%Syntax wrong
+
+% Hard constraint: Nurses working on two consecutive nights deserve one special_rest day in addition to the ordinary rest days
+:- assign(N, night, D), assign(N, night, D+1), not assign(N, special_rest, D+2), day(D+2).
+%Correct
+
+% Soft constraint: Nurses work the preferred number of shifts for each shift type
+1 { penalty(N, S) } 1 :- nurse(N), shift_type(S), shift_requirements(S, _, _, Pref), #count{D : assign(N, S, D)}!= Pref, N, S.
+%Syntax wrong
+```
+ 
