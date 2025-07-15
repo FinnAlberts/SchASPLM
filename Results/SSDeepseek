@@ -1,0 +1,42 @@
+----------------------------FULL PROGRAM (Deepseek)----------------------------
+
+
+
+team(Team).
+
+venue(Venue).
+
+availability(Venue, Date).
+
+% Generator
+
+1 { assigned(Team1, Team2, Venue, Gameday) : team(Team2), venue(Venue), availability(Venue, Gameday), Team1 != Team2 } 1 :- team(Team1).
+%Correct
+
+% Hard Constraints
+
+% No team plays each other more than once at different gamedays.
+:- assigned(Team1, Team2, _, Day1), assigned(Team1, Team2, _, Day2), Day1 != Day2.
+%Correct
+
+% Every team plays every other team at least once.
+:- team(Team1), team(Team2), Team1 != Team2, not assigned(Team1, Team2, _, _).
+%Correct
+
+% No team plays itself.
+:- assigned(Team, Team, _, _).
+%Correct
+
+
+
+% Soft Constraints
+
+% eams should play at the same venue as little as possible.
+using_venue(Team,Venue) :- assigned(Team,_,Venue,_); assigned(_,Team,Venue,_).
+penalty("VenueUsage",using_venue(Team,N),(N-1)*1) :- team(Team), N = { using_venue(Team,V) }, N > 1.
+%Correct
+
+
+
+% Objective function
+#minimize { Penalty,Reason,SoftConstraint : penalty(SoftConstraint,Reason,Penalty) }.
