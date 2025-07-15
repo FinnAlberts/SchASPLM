@@ -1,0 +1,25 @@
+Here are the ASP rules for the Examination Timetabling problem:
+
+% Hard constraints
+1. #show student_exam(Student, Exam) :- student(Student), exam(Exam).
+2. #show room_exam(Room, Exam) :- room(Room), exam(Exam).
+3. #show period_exam(Period, Exam) :- period(Period), exam(Exam).
+4. % No student sits more than one examination at the same time.
+5. :- student_exam(Student, Exam1), student_exam(Student, Exam2), Exam1 \= Exam2.
+6. % The number of students taking exams in a room at the same time should not exceed the capacity of the room.
+7. :- room_exam(Room, Exam1), room_exam(Room, Exam2), Exam1 \= Exam2, capacity(Room) < 2.
+8. % Period Lengths are not violated.
+9. :- period_exam(Period, Exam), duration(Exam, D), D > 0, period_length(Period, L), L < D.
+10. % Some exams must be before other exams.
+11. :- order_constraint(Exam1, Exam2), exam(Exam1), exam(Exam2), Exam1 before Exam2.
+12. % Some exams must be at the same time as other exams.
+13. :- same_time_constraint(Exam1, Exam2), exam(Exam1), exam(Exam2), Exam1 at_same_time Exam2.
+14. % Some exams must be at a different time than other exams.
+15. :- different_time_constraint(Exam1, Exam2), exam(Exam1), exam(Exam2), Exam1 at_diff_time Exam2.
+16. % Some exams must take place in a room with no other exams.
+17. :- own_room_constraint(Exam), exam(Exam), not room_exam(_, Exam).
+
+% Soft constraints
+18. #show penalty(Penalty) :- student_exam(Student, Exam1), student_exam(Student, Exam2), Exam1 at_same_day Exam2, Exam1 before Exam2, Penalty = 7.
+19. #show penalty(Penalty) :- student_exam(Student, Exam1), student_exam(Student, Exam2), Exam1 at_same_day Exam2, not Exam1 before Exam2, Penalty = 5.
+20. #show penalty(Penalty) :- exam(Exam), duration(Exam, D1), duration(Exam, D2), D1 \= D2, room_exam(Room, Exam), Penalty = 10
