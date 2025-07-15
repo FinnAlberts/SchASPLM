@@ -1,0 +1,16 @@
+----------------------------FULL PROGRAM (baseline, llama 8B)----------------------------
+Here is the ASP program:
+
+% Hard constraints
+1. #show no_same_game_day(team1, team2, venue, gameday) :- team1 \= team2, team1 @ team2, gameday1 @ gameday2.
+2. #show play_all(team) :- team @ team1, team @ team2, team1 \= team2.
+3. #show no_self_game(team) :- team @ team1, team1 = team.
+
+% Soft constraints
+4. #minimize(venue_distance(team1, team2, gameday)) :- team1 @ team2, gameday @ gameday1.
+
+% Generator
+5. game(team1, team2, venue, gameday) :- team1 @ team2, team1 \= team2, gameday @ gameday1.
+6. venue_distance(team1, team2, gameday) :- game(team1, team2, _, gameday).
+
+%Syntax is already terrible.
