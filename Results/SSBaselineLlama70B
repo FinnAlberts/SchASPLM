@@ -1,0 +1,40 @@
+```asp
+% Define the teams
+team(1..n).
+
+% Define the venues
+venue(1..m).
+
+% Define the game days
+gameday(1..d).
+
+% Define the availabilities
+availability(venue, gameday).
+
+% Generate assignments of games to pairs of teams, venues and game days
+1 { game(team1, team2, venue, gameday) } 1 :-
+    team(team1),
+    team(team2),
+    venue(venue),
+    gameday(gameday),
+    team1!= team2,
+    availability(venue, gameday).
+% Wrong: generates a game for every combination of teams *and* gameday.
+
+% Hard constraint: No team plays each other more than once at different gamedays
+:- game(team1, team2, _, gameday1), game(team1, team2, _, gameday2), gameday1!= gameday2.
+% Correct
+
+
+% Hard constraint: Every team plays every other team at least once
+:- team(team1), team(team2), team1!= team2, not game(team1, team2, _, _).
+%Correct
+
+% Hard constraint: No team plays itself
+:- game(team, team, _, _).
+% Correct
+
+% Soft constraint: Teams should play at the same venue as little as possible
+penalty(1) :- game(team1, team2, venue, _), game(team1, team3, venue, _), team2!= team3.
+``
+%Wrong: no minimisation
