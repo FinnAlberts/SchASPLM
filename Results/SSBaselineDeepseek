@@ -1,1 +1,32 @@
 
+---------------------------FULL PROGRAM (deepseek, baseline)----------------------------
+```asp
+% Define the teams, venues, and availabilities
+team(team).
+venue(venue).
+available(venue, date).
+
+% Generate possible game assignments
+1 { game(Team1, Team2, Venue, Gameday) : team(Team2), team(Team1), venue(Venue), available(Venue, Gameday), Team1 != Team2 } 1.
+%Wrong: only 1 total selection
+
+% No team plays itself
+:- game(Team, Team, _, _).
+%Correct
+
+% No team plays another team more than once at different gamedays
+:- game(Team1, Team2, _, Gameday1), game(Team1, Team2, _, Gameday2), Gameday1 != Gameday2.
+:- game(Team1, Team2, _, Gameday1), game(Team2, Team1, _, Gameday2), Gameday1 != Gameday2.
+%Correct
+
+% Every team plays every other team at least once
+played(Team1, Team2) :- game(Team1, Team2, _, _).
+played(Team1, Team2) :- game(Team2, Team1, _, _).
+:- team(Team1), team(Team2), Team1 != Team2, not played(Team1, Team2).
+%Correct
+
+% Soft constraint: Teams should play at the same venue as little as possible
+:~ game(Team1, Team2, Venue, _), game(Team1, Team2, Venue, _). [1@1, Team1, Team2, Venue]
+```
+%wrong: doesn't count same matches
+
