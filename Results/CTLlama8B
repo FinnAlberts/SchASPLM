@@ -1,0 +1,71 @@
+% Instance Template
+event(_).
+
+room(Room, Capacity).
+
+timeslot(Day, Hour).
+
+student(Event).
+
+feature_requirement(Event, Feature).
+
+room_feature(Room, Feature).
+
+precedence_constraint(Event1, Event2).
+
+timeslot_constraint(Event, Timeslot).
+
+% Generator
+
+% 
+{ assigned(Event, Timeslot, Room) : timeslot(Timeslot), room(Room) } 1 :- event(Event).
+%Wrong: wrong arity of room
+
+% Hard Constraints
+
+% Students must not have overlapping events.
+:- assigned(Event1, Timeslot1, Room), assigned(Event2, Timeslot1, Room), student(Event1), student(Event2), Event1!= Event2.
+%Correct (given wrong arity of student
+
+% The amount of students in a room at the same time should not exceed the capacity of the room
+:- room(Room, Capacity), #count{Student : student(Student, _), assigned(_, _, Room)} > Capacity.
+%Wrong: counts all students
+
+% Rooms must have the required features for the event.
+:- assigned(Event, Timeslot, Room), room_feature(Room, Feature), not feature_requirement(Event, Feature).
+%Wrong: this ensures every event has the feature
+
+% There must be no more than one event in a room at a time.
+:- assigned(Event1, Timeslot, Room), assigned(Event2, Timeslot, Room), Event1!= Event2.
+%Correct
+
+% Events may only be scheduled in designated timeslots.
+%:- assigned(Event, Timeslot, Room), ~timeslot_constraint(Event, Timeslot).
+%Wrong syntax
+
+% Some events must be scheduled in a specific order.
+:- precedence_constraint(Event1, Event2), assigned(Event1, _, _), assigned(Event2, _, _), Event1 < Event2.
+:- precedence_constraint(Event1, Event2), assigned(Event1, _, _), assigned(Event2, _, _), Event1 > Event2.
+%Wrong
+
+
+
+% Soft Constraints
+
+% Students should not have events scheduled in the last timeslot of the day
+penalty("LastTimeslot",student(Event),1) :- event(Event), timeslot_constraint(Event,Timeslot), last_timeslot(Timeslot).
+%Correct
+
+% Students should not have events scheduled in three or more consecutive timeslots
+penalty("ConsecutiveEvents",consecutive_events(Student),1) :- event(Event), timeslot_constraint(Event,Timeslot), timeslot_constraint(Event,Timeslot-1), timeslot_constraint(Event,Timeslot-2), student(Student).
+%Wrong
+
+% Students should not have exactly one event in a day
+student_event_count(Count, Student, Day) :- student(Student), #count{Event : event(Event), assigned(Event, _, Room), timeslots(_, _, Day), student(Event, Student)} = Count.
+penalty("StudentEvent",student_event_count(Count, Student, Day),(Count-1)*1) :- student_event_count(Count, Student, Day), Count = 1.
+%Wrong syntax
+
+
+
+% Objective function
+#minimize { Penalty,Reason,SoftConstraint : penalty(SoftConstraint,Reason,Penalty) }.
