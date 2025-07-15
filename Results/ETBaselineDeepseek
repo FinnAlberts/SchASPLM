@@ -1,0 +1,103 @@
+----------------------------FULL PROGRAM----------------------------
+```asp
+% Define the input predicates
+exam(E).
+student(S).
+period(P).
+room(R).
+order_constraint(E1, E2).
+same_time_constraint(E1, E2).
+different_time_constraint(E1, E2).
+own_room_constraint(E).
+%Wrong arity for exam, student, period, room, solved partially by using additional predicates
+
+% Exam properties
+duration(E, D).
+is_large(E, L).
+
+
+% Student properties
+takes(S, E).
+
+% Period properties
+date(P, Date).
+time(P, T).
+period_duration(P, PD).
+is_late(P, Late).
+period_penalty(P, PP).
+
+% Room properties
+capacity(R, C).
+room_penalty(R, RP).
+
+% Decision variable: assign exam E to period P and room R
+{ assign(E, P, R) } :- exam(E), period(P), room(R).
+%Wrong: can assign more than one period and room to an exam.
+
+% Hard Constraints
+
+% No student sits more than one examination at the same time
+:- takes(S, E1), takes(S, E2), E1 != E2, assign(E1, P, _), assign(E2, P, _).
+%Correct
+
+% Room capacity not exceeded
+students_in_room(P, R, Count) :- Count = #count{ S : takes(S, E), assign(E, P, R) }, assign(E, P, R).
+:- students_in_room(P, R, Count), capacity(R, C), Count > C.
+%Correct
+
+% Period lengths not violated
+:- assign(E, P, _), duration(E, D), period_duration(P, PD), D > PD.
+%Correct
+
+% Order constraints
+:- order_constraint(E1, E2), assign(E1, P1, _), assign(E2, P2, _), time(P1, T1), time(P2, T2), T1 >= T2.
+%Correct
+
+% Same time constraints
+:- same_time_constraint(E1, E2), assign(E1, P1, _), assign(E2, P2, _), P1 != P2.
+%Correct
+
+% Different time constraints
+:- different_time_constraint(E1, E2), assign(E1, P, _), assign(E2, P, _).
+%Wrong
+
+
+
+% Own room constraints
+:- own_room_constraint(E), assign(E, P, R), not #count{ E2 : assign(E2, P, R), E2 != E } > 0.
+%Wrong: this forces that there is at least one other exam in the room.
+
+% Soft Constraints
+
+% Students should not have more than one exam in the same day
+same_day(S, P1, P2) :- takes(S, E1), takes(S, E2), E1 != E2, assign(E1, P1, _), assign(E2, P2, _), date(P1, D), date(P2, D), P1 < P2.
+penalty(7) :- same_day(S, P1, P2), time(P1, T1), time(P2, T2), T2 = T1 + 1.
+penalty(5) :- same_day(S, P1, P2), not time(P1, T1), time(P2, T2), T2 = T1 + 1.
+%Incorrect format of penalties. Also periods are not assigned days here.
+
+
+% Exams of different lengths should not be scheduled in the same room in the same period
+same_room_period(E1, E2, P, R) :- assign(E1, P, R), assign(E2, P, R), E1 < E2, duration(E1, D1), duration(E2, D2), D1 != D2.
+penalty(10) :- same_room_period(E1, E2, P, R).
+%Incorrect format of penalties.  
+
+% Period penalties
+penalty(PP) :- assign(E, P, R), period_penalty(P, PP).
+%Incorrect format of penalties.  
+
+% Room penalties
+penalty(RP) :- assign(E, P, R), room_penalty(R, RP).
+%Incorrect format of penalties.  
+
+% Students should not have more than one exam within a spread of 7 periods
+within_spread(S, P1, P2) :- takes(S, E1), takes(S, E2), E1 != E2, assign(E1, P1, _), assign(E2, P2, _), P1 < P2, P2 - P1 <= 7.
+penalty(3) :- within_spread(S, P1, P2).
+%Incorrect use of Period format, incorrect format of penalties.
+
+% Large exams should not be scheduled in late periods
+penalty(5) :- assign(E, P, R), is_large(E, 1), is_late(P, 1).
+%Incorrect format of penalties
+
+% Minimize the total penalty
+#minimize { X : penalty(X) }.
+```
