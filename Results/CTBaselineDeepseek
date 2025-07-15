@@ -1,0 +1,65 @@
+----------------------------FULL PROGRAM----------------------------
+```asp
+% Define constants
+#const n_days=5.
+#const n_hours_per_day=9.
+
+% Define timeslots
+timeslot(1..n_days*9).
+day(T, (T-1)//9 + 1) :- timeslot(T).
+hour(T, ((T-1) mod 9) + 1) :- timeslot(T).
+
+% Generator: Assign events to timeslots and rooms
+{ assign(E, T, R) : timeslot(T), room(R) } = 1 :- event(E).
+%Correct
+% Hard Constraints
+
+% 1. Students must not have overlapping events
+:- student(S, E1), student(S, E2), E1 != E2, assign(E1, T, _), assign(E2, T, _).
+%Correct
+
+% 2. Room capacity not exceeded
+:- assign(E, T, R), event_students(E, S), room_capacity(R, C), #count{ S : student(S,E), assign(E,T,R) } > C.
+%wrong: event_students not defined
+
+% 3. Rooms must have required features for the event
+:- assign(E, T, R), event_feature(E, F), not room_feature(R, F).
+%correct
+
+% 4. No more than one event in a room at a time
+:- assign(E1, T, R), assign(E2, T, R), E1 != E2.
+%correct
+
+% 5. Events only in designated timeslots
+:- assign(E, T, _), not event_timeslot(E, T).
+%correct
+
+% 6. Precedence constraints must be satisfied
+:- precedence(E1, E2), assign(E1, T1, _), assign(E2, T2, _), T1 >= T2.
+%Correct
+
+
+% Soft Constraints
+
+% 1. Penalize events in last timeslot of the day
+penalty(1, S, 1) :- student(S, E), assign(E, T, _), hour(T, 9).
+%Incorret: only counts once per student
+
+% 2. Penalize three or more consecutive events
+consecutive(S, D, H1, H3) :- student(S, E1), student(S, E2), student(S, E3),
+                             assign(E1, T1, _), assign(E2, T2, _), assign(E3, T3, _),
+                             day(T1, D), day(T2, D), day(T3, D),
+                             hour(T1, H1), hour(T2, H2), hour(T3, H3),
+                             H2 = H1 + 1, H3 = H2 + 1.
+penalty(2, S, 1) :- consecutive(S, _, _, _).
+% Incorrect: only counts once per student
+
+% 3. Penalize exactly one event in a day
+events_per_day(S, D, N) :- student(S, _), day(D),
+                           #count{ E : student(S,E), assign(E,T,_), day(T,D) } = N.
+penalty(3, S, 1) :- events_per_day(S, _, 1).
+% Incorrect: only counts once per student
+
+% Optimization
+#minimize { P,S : penalty(_,S,P) }.
+```
