@@ -1,0 +1,58 @@
+----------------------------FULL PROGRAM----------------------------
+```asp
+% Define the assignment of nurses to shifts on days
+{ assign(N, S, D) } :- nurse(N), shift_type(S), day(D).
+%Correct togther with next constraint.
+
+% Each nurse must have exactly one shift per day
+:- nurse(N), day(D), not 1 { assign(N, S, D) : shift_type(S) } 1.
+%Correct
+
+% Every day, the number of nurses assigned to each shift must be between the specified min and max
+:- shift_type(S), day(D), nurse_requirements(S, Min, Max), 
+   not Min <= #count { N : assign(N, S, D) } <= Max.
+%Correct
+
+% Each nurse must work at least the specified minimum and at most the specified maximum number of hours
+total_hours(N, Total) :- nurse(N), Total = #sum { D,S : assign(N,S,D), duration(S,H), H = D }.
+:- nurse(N), work_requirements(Min, Max), total_hours(N, Total), Total < Min.
+:- nurse(N), work_requirements(Min, Max), total_hours(N, Total), Total > Max.
+%Wrong: does not count hours (H=D??)
+
+% Nurses must have exactly 30 days of vacation
+:- nurse(N), not #count { D : assign(N, vacation, D) } = 30.
+%Correct
+
+% If a nurse works a night shift, they cannot work a morning or afternoon shift the next day
+:- assign(N, night, D), assign(N, morning, D+1).
+:- assign(N, night, D), assign(N, afternoon, D+1).
+%Correct
+
+% If a nurse works an afternoon shift, they cannot work a morning shift the next day
+:- assign(N, afternoon, D), assign(N, morning, D+1).
+%Correct
+
+% Each nurse has at least two ordinary rest days for every window of fourteen days
+rest_days(N, D) :- assign(N, rest, D).
+:- nurse(N), day(D), D <= #maxday - 13, 
+   not 2 <= #count { X : rest_days(N, X), X >= D, X <= D+13 }.
+%Wrong syntax
+
+
+% Nurses working on two consecutive nights deserve one special_rest day in addition to the ordinary rest days
+consecutive_nights(N, D) :- assign(N, night, D), assign(N, night, D+1).
+special_rest_required(N6/8, D) :- consecutive_nights(N, D).
+:- special_rest_required(N, D), not assign(N, special_rest, D+2).
+%Correct
+
+% The total number of hours worked by each nurse must be between the specified minimum and maximum
+% (Already covered by the total_hours rule above)
+%Correct
+
+% Soft constraint: Nurses work the preferred number of shifts for each shift type
+preferred_shifts(N, S, Preferred) :- shift_requirements(S, _, _, Preferred).
+actual_shifts(N, S, Count) :- nurse(N), shift_type(S), Count = #count { D : assign(N, S, D) }.
+:~ nurse(N), shift_type(S), preferred_shifts(N, S, Preferred), actual_shifts(N, S, Count), Count < Preferred. [1@1, N, S]
+:~ nurse(N), shift_type(S), preferred_shifts(N, S, Preferred), actual_shifts(N, S, Count), Count > Preferred. [1@1, N, S]
+%Syntactically wrong: Unsafe variable N.
+```
