@@ -1,0 +1,42 @@
+----------------------------FULL PROGRAM (8B)----------------------------
+
+% Instance Template
+team(Team).
+
+venue(Venue).
+
+availability(Venue, Date).
+
+% Generator
+
+% 
+1 { assigned(Team1, Team2, Venue, GameDay) : team(Team1), team(Team2), venue(Venue), gameday(GameDay) } 1.
+
+
+% Hard Constraints
+
+% No team plays each other more than once at different gamedays.
+:- assigned(Team1, Team2, _, GameDay1), assigned(Team1, Team2, _, GameDay2), GameDay1!= GameDay2.
+
+
+% Every team plays every other team at least once.
+:- assigned(Team1, Team2, _, _), team(Team1), team(Team2), Team1!= Team2, Team2!= Team1.
+
+
+% No team plays itself.
+:- assigned(Team1, Team2, _, _), Team1 = Team2.
+
+
+
+
+% Soft Constraints
+
+% eams should play at the same venue as little as possible.
+penalty("VenueSharing",team(Team1),1) :- assigned(Team1,Team2,_,GameDay), assigned(Team3,Team4,_,GameDay), team(Team1), team(Team2), team(Team3), team(Team4), team(Team1) \= team(Team3).
+
+
+
+
+% Objective function
+#minimize { Penalty,Reason,SoftConstraint : penalty(SoftConstraint,Reason,Penalty) }.
+
