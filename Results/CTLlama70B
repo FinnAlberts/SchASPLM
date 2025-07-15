@@ -1,0 +1,82 @@
+----------------------------FULL PROGRAM----------------------------
+
+% Instance Template
+event(1.. N).
+
+room(Room, Capacity).
+
+timeslot(Timeslot, Day, Hour).
+
+student(Student, Event).
+
+feature_requirement(Feature, Event).
+
+room_feature(Feature, Room).
+
+precedence_constraint(Event1, Event2).
+
+timeslot_constraint(Event, Timeslot).
+
+% Generator
+
+% Assignment of events to timeslots and rooms
+1 { assigned(Event, Timeslot, Room) : room(Room,_), timeslot(Timeslot,_,_) } 1 :- event(Event).
+
+
+% Hard Constraints
+
+% Students must not have overlapping events.
+:- student(Student, Event1), student(Student, Event2), assigned(Event1, Timeslot, _), assigned(Event2, Timeslot, _), Event1!= Event2.
+
+
+% The amount of students in a room at the same time should not exceed the capacity of the room
+:- room(Room, Capacity), timeslot(Timeslot, _, _), 
+   #count{Student : student(Student, Event), assigned(Event, Timeslot, Room)} > Capacity.
+
+
+% Rooms must have the required features for the event.
+:- assigned(Event, Timeslot, Room), feature_requirement(Feature, Event), not room_feature(Feature, Room).
+
+
+% There must be no more than one event in a room at a time.
+:- assigned(Event1, Timeslot, Room), assigned(Event2, Timeslot, Room), Event1!= Event2.
+
+
+% Events may only be scheduled in designated timeslots.
+:- assigned(Event, Timeslot, Room), not timeslot_constraint(Event, Timeslot).
+
+
+% Some events must be scheduled in a specific order.
+:- assigned(Event1, Timeslot1, Room), assigned(Event2, Timeslot2, Room), 
+   precedence_constraint(Event1, Event2), Timeslot1 >= Timeslot2.
+
+
+
+
+% Soft Constraints
+
+% Students should not have events scheduled in the last timeslot of the day
+penalty("LastTimeslot", student(Student,Event), 1) :- 
+  assigned(Event,Timeslot,Room), 
+  timeslot(Timeslot,Day,Hour), 
+  student(Student,Event), 
+  Hour = 9.
+
+
+% Students should not have events scheduled in three or more consecutive timeslots
+consecutive_timeslots(Student, Timeslot) :- student(Student, Event1), assigned(Event1, Timeslot, _), 
+                                    student(Student, Event2), assigned(Event2, Timeslot+1, _), 
+                                    student(Student, Event3), assigned(Event3, Timeslot+2, _).
+penalty("ConsecutiveTimeslots",consecutive_timeslots(Student,Timeslot),1) :- consecuitive_timeslots(Student,Timeslot).
+
+
+% Students should not have exactly one event in a day
+event_count(Count, Student, Day) :- student(Student, _), #count{Event : event(Event), student(Student, Event), assigned(Event, Timeslot, _), timeslot(Timeslot, Day, _)} = Count.
+penalty("StudentEventCount", event_count(1, Student, Day), 1) :- event_count(1, Student, Day).
+
+
+
+
+% Objective function
+#minimize { Penalty,Reason,SoftConstraint : penalty(SoftConstraint,Reason,Penalty) }.
+
