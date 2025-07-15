@@ -28,5 +28,5 @@ We tested baseline models and the (chain-of-thought + few-shot prompting) approa
 We tested for syntactical correctness (using the [clingo](https://potassco.org/clingo/run/) solver) and semantical correctness (by manual inspection).
 
 We report the following results:
-![Results](ileaderboard.png)
+![Results](leaderboard.png)
 
