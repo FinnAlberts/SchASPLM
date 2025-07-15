@@ -1,0 +1,15 @@
+Here are the ASP rules for the nurse scheduling problem:
+
+% Hard constraints
+1. {assign(N, S, D) : nurse(N), shift_type(S), day(D), nurse_requirements(S, Min, Max), Min <= #count{assign(N, S, D)} <= Max}.
+2. {work_hours(N, Min, Max) : nurse(N), work_requirements(Min, Max), Min <= #sum{assign(N, S, D) : shift_type(S), day(D)} <= Max}.
+3. {vacation_days(N, 30) : nurse(N)}.
+4. {no_morning_after_night(N, D) : nurse(N), day(D), assign(N, night, D), assign(N, morning, D1), D1 = D + 1}.
+5. {no_afternoon_after_night(N, D) : nurse(N), day(D), assign(N, night, D), assign(N, afternoon, D1), D1 = D + 1}.
+6. {ordinary_rest_days(N, 2) : nurse(N), day(D), day(D1), day(D2), day(D3), day(D4), day(D5), day(D6), day(D7), day(D8), day(D9), day(D10), day(D11), day(D12), day(D13), day(D14), nurse(N), assign(N, rest, D), assign(N, rest, D1), D1 = D + 14}.
+7. {special_rest_days(N, 1) : nurse(N), day(D), day(D1), day(D2), day(D3), day(D4), day(D5), day(D6), day(D7), day(D8), day(D9), day(D10), day(D11), day(D12), day(D13), day(D14), nurse(N), assign(N, night, D), assign(N, night, D1), assign(N, rest, D2), D2 = D + 1}.
+8. {work_hours_sum(N, Min, Max) : nurse(N), work_requirements(Min, Max), Min <= #sum{assign(N, S, D) : shift_type(S), day(D)} <= Max}.
+
+% Soft constraints
+1. {penalty(N, S, D) : nurse(N), shift_type(S), day(D), shift_requirements(S, Min, Max, Preferred), #count{assign(N, S, D)} < Preferred}.
+2.
