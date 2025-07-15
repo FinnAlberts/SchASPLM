@@ -1,0 +1,17 @@
+Here are the ASP rules for the Post Enrolment Based Course Timetabling problem:
+
+% Hard Constraints
+1. { event(E), student(E, S), event(E1), student(E1, S1), E \= E1, E1 < E } :- precedence_constraint(E1, E).
+2. { event(E), timeslot(T), room(R), event_feature(E, F), room_feature(R, F) } :- not room_feature(R, F).
+3. { event(E), timeslot(T), room(R), event(E1), timeslot(T1), room(R1), E \= E1, T \= T1, R \= R1 }.
+4. { event(E), timeslot(T), room(R), event(E1), timeslot(T1), room(R1), E \= E1, T1 < T }.
+5. { event(E), timeslot(T), room(R), event(E1), timeslot(T1), room(R1), E \= E1, T1 > T }.
+6. { event(E), timeslot(T), room(R), event(E1), timeslot(T1), room(R1), E \= E1, T \= T1, R \= R1 }.
+
+% Soft Constraints
+1. { event(E), student(E, S), timeslot(T), day(D), hour(H), H = 9, D = 5 } :- soft_penalty(1).
+2. { event(E), student(E, S), timeslot(T), day(D), hour(H), H = 8, D = 5, prev_timeslot(T) } :- soft_penalty(1).
+3. { event(E), student(E, S), timeslot(T), day(D), hour(H), H = 7, D = 5, prev_timeslot(T) } :- soft_penalty(1).
+4. { event(E), student(E, S), timeslot(T), day(D), hour(H), H = 6, D = 5, prev_timeslot(T) } :- soft_penalty(1).
+
+Note: The `soft_penalty` predicate is not a standard ASP predicate and is used to specify the penalty for each soft constraint violation.
