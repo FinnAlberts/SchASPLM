@@ -1,0 +1,66 @@
+```asp
+% Hard Constraints
+
+% No student sits more than one examination at the same time.
+:- student(S), exam(E1), exam(E2), period(P), room(R1), room(R2),
+   takes(S, E1), takes(S, E2), assigned(E1, P, R1), assigned(E2, P, R2), E1!= E2.
+%Correct
+
+% The number of students taking exams in a room at the same time should not exceed the capacity of the room.
+:- room(R), capacity(R, C), period(P), #count{S: student(S), takes(S, E), assigned(E, P, R)} > C.
+%Correct
+
+% Period Lengths are not violated.
+:- exam(E), duration(E, D), period(P), duration(P, PD), assigned(E, P, _), D > PD.
+% Correct
+
+% Some exams must be before other exams.
+:- order_constrains(E1, E2), period(P1), period(P2), assigned(E1, P1, _), assigned(E2, P2, _), P1 >= P2.
+%Correct
+
+
+% Some exams must be at the same time as other exams.
+:- same_time_constrains(E1, E2), period(P1), period(P2), assigned(E1, P1, _), assigned(E2, P2, _), P1!= P2.
+%Correct
+
+% Some exams must be at a different time than other exams.
+:- different_time_constrains(E1, E2), period(P), assigned(E1, P, _), assigned(E2, P, _).
+%Wrong: E1 and E2 can be the same.
+
+% Some exams must take place in a room with no other exams.
+:- own_room_constrains(E), room(R), period(P), assigned(E, P, R), #count{E2: exam(E2), assigned(E2, P, R)} > 1.
+%Correct
+
+% Generator
+{ assigned(E, P, R) : exam(E), period(P), room(R) }.
+%Wrong: not guaranteed to have an assignment for every exam.
+
+% Soft Constraints
+
+% Students should not have more than one exam in the same day
+penalty(7, S, P1, P2) :- student(S), takes(S, E1), takes(S, E2), period(P1), period(P2), assigned(E1, P1, _), assigned(E2, P2, _), date(P1, D), date(P2, D), P1 + 1 == P2, E1!= E2.
+penalty(5, S, P1, P2) :- student(S), takes(S, E1), takes(S, E2), period(P1), period(P2), assigned(E1, P1, _), assigned(E2, P2, _), date(P1, D), date(P2, D), P1 < P2, E1!= E2.
+%Correct (but where does it take all this detail from?
+%Wrong: penalty arity is different in next rule
+
+% Exams of different lengths should not be scheduled in the same room in the same period
+penalty(10, E1, E2, P, R) :- exam(E1), exam(E2), period(P), room(R), assigned(E1, P, R), assigned(E2, P, R), duration(E1, D1), duration(E2, D2), D1!= D2, E1!= E2.
+%Correct (even though this will count double
+
+% Some periods have associated penalties
+penalty(P, 1) :- period(P), penalty(P, _).
+%wrong: penalty could be 0
+
+% Some rooms have associated penalties
+penalty(R, 1) :- room(R), penalty(R, _).
+%wrong: penalty could be 0
+
+% Students should not have more than one exam within a spread of 7 periods.
+penalty(3, S, P1, P2) :- student(S), takes(S, E1), takes(S, E2), period(P1), period(P2), assigned(E1, P1, _), assigned(E2, P2, _), abs(P1 - P2) <= 7, E1!= E2.
+%Wrong: abs is not defined
+
+% An exam that is large should not be scheduled in a period that is late.
+penalty(5, E, P) :- exam(E), is_large(E), period(P), is_late(P), assigned(E, P, _).
+%Wrong arity
+```
+ 
