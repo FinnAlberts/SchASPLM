@@ -1,0 +1,79 @@
+
+----------------------------FULL PROGRAM----------------------------
+
+```
+nurse(0 .. N_nurses-1).
+
+day(0 .. N_days-1).
+
+shift_type(Shift_type, Duration).
+
+nurse_requirement(Shift, Min, Max).
+
+work_requirement(Min, Max).
+
+shift_requirement(Shift_type, Min, Max, Preferred).
+```
+%% shift_type might not wor
+%% Weird numbering of days and nurses
+
+% Generator
+
+1 { assigned(Nurse, Shift, Day) : shift_type(Shift, _) } 1 :- nurse(Nurse), day(Day).
+%Correct
+
+
+% Hard Constraints
+
+% Every day, the number of nurses assigned to each shift must be between the specified minimum and maximum
+:- day(Day), shift_type(Shift, _), #count{Nurse : assigned(Nurse, Shift, Day)} < Min, nurse_requirement(Shift, Min, _).
+:- day(Day), shift_type(Shift, _), #count{Nurse : assigned(Nurse, Shift, Day)} > Max, nurse_requirement(Shift, _, Max).
+%Correct, but use of shift_type superfluous
+
+% Each nurse must work at least the specified minimum and at most the specified maximum number of hours
+:- nurse(Nurse), #sum{Duration, Shift, Day: assigned(Nurse, Shift, Day), shift_type(Shift, Duration)} < Min, work_requirement(Min, _).
+:- nurse(Nurse), #sum{Duration, Shift, Day: assigned(Nurse, Shift, Day), shift_type(Shift, Duration)} > Max, work_requirement(_, Max).
+%Correct
+
+% Nurses must have exactly 30 days of vacation.
+:- nurse(Nurse), #count{Day : assigned(Nurse, vacation, Day)} != 30.
+%Correct
+
+% If a nurse works a night shift, they can not work a morning or afternoon shift the next day
+:- assigned(Nurse, night, Day), assigned(Nurse, morning, Day+1).
+:- assigned(Nurse, night, Day), assigned(Nurse, afternoon, Day+1).
+% Correct
+
+% If a nurse works an afternoon shift, they cannot work a morning shift the next day.
+:- assigned(Nurse, afternoon, Day), assigned(Nurse, morning, Day+1).
+% Correct
+
+
+% Each nurse has at least two ordinary rest days for every window of fourteen days
+:- nurse(Nurse), day(Day), Day >= 13, #count{ D : assigned(Nurse, rest, D), D >= Day - 13, D <= Day } < 2.
+%Wong
+
+% Nurses working on two consecutive nights deserve one special_rest day in addition to the ordinary rest days
+:- assigned(Nurse, night, Day), assigned(Nurse, night, Day+1), not assigned(Nurse, special_rest, Day+2).
+%Correct
+
+% The total number of hours worked by each nurse must be between the specified minimum and maximum
+:- nurse(Nurse), #sum{Duration, Shift, Day: assigned(Nurse, Shift, Day), shift_type(Shift, Duration)} > Max, work_requirement(_, Max).
+:- nurse(Nurse), #sum{Duration, Shift, Day: assigned(Nurse, Shift, Day), shift_type(Shift, Duration)} < Min, work_requirement(Min, _).
+%Correct
+
+
+
+% Soft Constraints
+
+% Nurses work the preferred number of shifts for each shift type
+shift_count(Count, Nurse, Shift) :- nurse(Nurse), shift_type(Shift, _), #count{Day : assigned(Nurse, Shift, Day)} = Count.
+penalty("PreferredShifts",shift_count(Count, Nurse, Shift),(Preferred-Count)*1) :- shift_count(Count, Nurse, Shift), shift_requirement(Shift, _, _, Preferred), Count < Preferred.
+penalty("PreferredShifts",shift_count(Count, Nurse, Shift),(Count-Preferred)*1) :- shift_count(Count, Nurse, Shift), shift_requirement(Shift, _, _, Preferred), Count > Preferred.
+%Correct
+
+
+
+
+% Objective function
+#minimize { Penalty,Reason,SoftConstraint : penalty(SoftConstraint,Reason,Penalty) }.
