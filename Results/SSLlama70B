@@ -1,0 +1,44 @@
+----------------------------FULL PROGRAM----------------------------
+
+% Instance Template
+team(Team).
+
+venue(Venue).
+
+availability(Venue, Date).
+
+% Generator
+
+% Instance
+1 { assigned(Team1, Team2, Venue, GameDay) : team(Team1), team(Team2), venue(Venue), gameday(GameDay) } 1 :- game(Game).
+%There is no game given in the input.
+
+% Hard Constraints
+
+% No team plays each other more than once at different gamedays.
+:- assigned(Team1, Team2, _, GameDay1), assigned(Team1, Team2, _, GameDay2), GameDay1!= GameDay2.
+% Does not exclude mirrored matches
+
+% Every team plays every other team at least once.
+:- team(T1), team(T2), T1!= T2, not assigned(T1, T2, _, _).
+:- team(T1), team(T2), T1!= T2, not assigned(T2, T1, _, _).
+
+
+% No team plays itself.
+:- assigned(Team1, Team2, Venue, GameDay), Team1 == Team2.
+
+
+
+
+% Soft Constraints
+
+% eams should play at the same venue as little as possible.
+same_venue(Team, Venue) :- assigned(Team, Opponent, Venue, GameDay), team(Team), team(Oponent), venue(Venue), game(Game).
+penalty("SameVenue",same_venue(Team, Venue),1) :- team(Team), Venue = { Venue : same_venue(Team, Venue) }, { same_venue(Team, Venue) } > 1.
+
+
+
+
+% Objective function
+#minimize { Penalty,Reason,SoftConstraint : penalty(SoftConstraint,Reason,Penalty) }.
+
