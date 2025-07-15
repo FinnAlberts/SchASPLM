@@ -1,0 +1,81 @@
+----------------------------FULL PROGRAM----------------------------
+
+event(0 .. N-1).
+
+room(Room, Capacity).
+
+timeslot(Timeslot, Day, Hour).
+
+student(Student, Event).
+
+feature_requirement(Feature, Event).
+
+room_feature(Feature, Room).
+
+precedence_constraint(Event1, Event2).
+
+timeslot_constraint(Event, Timeslot).
+
+% Generator
+
+
+1 { assigned(Event, Timeslot, Room) : timeslot(Timeslot,_,_), room(Room,_) } 1 :- event(Event).
+% Correct
+
+
+% Hard Constraints
+
+% Students must not have overlapping events.
+:- assigned(Event1, Timeslot, Room1), assigned(Event2, Timeslot, Room2), student(Student, Event1), student(Student, Event2), Event1 != Event2.
+%Correct
+
+% The amount of students in a room at the same time should not exceed the capacity of the room
+:- assigned(Event, Timeslot, Room), #count{Student : student(Student, Event)} > Capacity, room(Room, Capacity).
+%:- room(Room, Capacity), timeslot(Timeslot, _, _),    #count{Student : student(Student, Event), assigned(Event, Timeslot, Room)} > Capacity.
+%Check in paper: deepseeks sems to have it right.
+
+% Rooms must have the required features for the event.
+:- assigned(Event, _, Room), feature_requirement(Feature, Event), not room_feature(Feature, Room).
+%Correct
+
+% There must be no more than one event in a room at a time.
+:- assigned(Event1, Timeslot, Room), assigned(Event2, Timeslot, Room), Event1 != Event2.
+%Correct
+
+
+% Events may only be scheduled in designated timeslots.
+:- assigned(Event, Timeslot, _), not timeslot_constraint(Event, Timeslot).
+%Correct
+
+
+% Some events must be scheduled in a specific order.
+:- assigned(Event1, Timeslot1, _), assigned(Event2, Timeslot2, _), precedence_constraint(Event1, Event2), Timeslot1 >= Timeslot2.
+%Correct
+
+
+
+
+% Soft Constraints
+
+% Students should not have events scheduled in the last timeslot of the day
+penalty("LastTimeslot",student(Student,Event),1) :- assigned(Event,Timeslot,_), timeslot(Timeslot,Day,Hour), Hour == 9, student(Student,Event).
+%Correct
+
+
+% Students should not have events scheduled in three or more consecutive timeslots
+student_timeslot(Student,Timeslot) :- assigned(Event,Timeslot,Room), student(Student,Event).
+consecutive_timeslots(Student,Timeslot) :- student_timeslot(Student,Timeslot), student_timeslot(Student,Timeslot+1), student_timeslot(Student,Timeslot+2).
+penalty("NoThreeConsecutive",student(Student,_),1) :- consecutive_timeslots(Student,_).
+%Correct
+
+
+% Students should not have exactly one event in a day
+student_event_count(Count, Student, Day) :- student(Student, _), timeslot(_, Day, _), #count{Event : assigned(Event, Timeslot, _), timeslot(Timeslot, Day, _), student(Student, Event)} = Count.
+penalty("SingleEventDay", student_event_count(Count, Student, Day), 1) :- student_event_count(Count, Student, Day), Count == 1.
+%-:45:1-88: error: unsafe variables in:  penalty("NoThreeConsecutive",student(Student,#Anon0),1):-[#inc_base];consecutive_timeslots(Student,#Anon1).
+% -:45:46-47: note: '#Anon0' is unsafe
+
+
+
+% Objective function
+#minimize { Penalty,Reason,SoftConstraint : penalty(SoftConstraint,Reason,Penalty) }.
