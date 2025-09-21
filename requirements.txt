@@ -1,0 +1,7 @@
+pandas
+huggingface_hub
+transformers
+dotenv
+torch
+torchvision
+openai

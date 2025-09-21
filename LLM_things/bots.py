@@ -129,7 +129,7 @@ class Deepseek_Bot():
         self.system_prompt = system_prompt
         self.client = client = InferenceClient(
     provider="together",
-    api_key="HF_KEY"
+    api_key=HF_KEY
 )
         self.model = "deepseek-ai/DeepSeek-V3"
         # Start the conversation with the system prompt

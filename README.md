@@ -16,6 +16,17 @@ The system is set up to take the following inputs about the problem:
 
 For each of these sections, a bespoke chain of prompt can help to write the required code via few shot learning with examples specific to the types of ASP rules we are looking to generate.
 
+## Requirements
+Please install all dependencies using:
+```bash
+pip install -r requirements.txt
+```
+
+Additionally, create a `.env` file in the main directory with your Huggingface API key:
+```
+HF_KEY="your_huggingface_api_key"
+```
+
 ## Running the Code
 All code can be run from the jupyter notebooks in the main directory.
 
