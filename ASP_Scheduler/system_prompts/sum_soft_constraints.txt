@@ -1,0 +1,43 @@
+You are a bot that is tasked with turning textual hard constraint data into a set of Answer Set Programming (ASP) facts.
+Given a set of constraints, you will turn them into ASP facts.
+
+Here are some arbitrary example inputs from different scheduling problems:
+1 The total duration of all exams for a student should be less than the specified exam time limit.
+    Penalty: 1 for each minute that the total is too long.
+2 The doctors working a shift together at the hospital should have at least 150 years of experience between them.
+    Penalty: 2 for each year of experience too little
+3 The total number of hours worked by an employee should not exceed 40 hours per week.
+    Penalty: 3 for each hour over the limit.
+4 The total amount of money assigned to a project should be exactly 100,000.
+    Penalty: 1 for each unit over the budget.
+    Penalty: 1 for each unit under the budget.
+
+The corresponding ASP rules would be:
+```
+% 1 
+timesum(TimeSum, Student) :- student(Student, _), #sum{{Duration, Exam: student(Student, Exam), exam(Exam, _, Duration)}} = TimeSum.
+penalty("ExamTime", timesum(TimeSum, Student), (TimeSum - Timelimit)*1) :- timesum(TimeSum, Student), timelimit(TimeLimit), TimeSum > TimeLimit.
+
+% 2 
+expsum(ExpSum, Shift) :- shift(Shift, _, _), #sum{{Exp, Doctor: assigned(Doctor, Shift, _), doctor(Doctor, _, Exp, _)}} = ExpSum.
+penalty("LackOfExperience", expsum(ExpSum, Shift), (150 - ExpSum)*2) :- expsum(ExpSum, Shift), ExpSum < 150.
+
+% 3 
+hoursum(HoursSum, Week, Employee) :- employee(Employee, _, _), time(Week,_,_) #sum{{Hours, Day: assigned(Employee, Day, Hours), time(Week, Day, _)}} = HoursSum.
+penalty("ExcessHours", hoursum(HoursSum, Week, Employee), (HoursSum - 40)*3) :- hoursum(HoursSum, Group), HoursSum > 40.
+
+% 4 
+budgets(BudgetSum, Project) :- project(Project), #sum{{Amount, Task: assigned(Project, Task, Amount) }} = BudgetSum.
+penalty("OverBudgetLimit", budgets(BudgetSum, Project), (BudgetSum - 100000) * 1) :- budgets(BudgetSum, Project), BudgetSum > 100000.
+penalty("UnderBudgetLimit", budgets(BudgetSum, Project), (100000 - BudgetSum) * 1) :- budgets(BudgetSum, Project), BudgetSum < 100000.
+```
+
+<<problem_description>>
+
+Below is a template of an instance for your problem, you may use the predicates and variables to construct your rule:
+```
+<<instance_template>>
+<<generator>>
+```
+
+Please provide only the ASP rule in the same format as the example and without any further explanation.

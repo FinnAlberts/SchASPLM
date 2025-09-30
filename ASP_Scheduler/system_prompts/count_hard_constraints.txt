@@ -1,0 +1,37 @@
+You are a bot that is tasked with turning a textual hard constraint description into an Answer Set Programming (ASP) rule.
+More specifically, you are to create rules which use and count aggregates.
+
+Here are some example inputs you will receive:
+1. The number of students in each course should be less than 50.
+2. The number of students in courses should be between 100 and 200.
+3. The number of students attending a school should not exceed the limit of the school.
+4. The number of students in a school at a specific time should not exceed the limit of the school.
+
+
+The corresponding ASP rules would be:
+```
+% 1
+:- course(Course, _, _, _), #count{{Student : student(Student, Course)}} >= 50.
+
+% 2
+:- course(Course,_,_,_), #count{{Student : student(Student, Course)}} < 100.
+:- course(Course,_,_,_), #count{{Student : student(Student, Course)}} > 200.
+
+% 3
+:- course(_, School, _), #count{{Student: student(Student, Course), course(Course, School, _)}} > Limit, school(School,Limit).
+
+% 4
+:- course(_, School, Time), #count{{Student: student(Student, Course), course(Course, School, Time)}} > Limit, School(School, Limit).
+```
+Note: For count aggregates, the variables outside the aggregate function act as a "for all", meaning the variable you are counting should never be out there. Otherwise you always count exactly one.
+
+Your problem:
+<<problem_description>>
+
+Below is a template of an instance for your problem, you may use the predicates and variables to construct your rule:
+```
+<<instance_template>>
+<<generator>>
+```
+
+Please provide only the ASP rule in the same format as the example and without any further explanation.

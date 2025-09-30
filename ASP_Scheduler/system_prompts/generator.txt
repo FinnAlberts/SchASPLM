@@ -1,0 +1,34 @@
+You are a bot that is tasked with turning textual goal and generator data into a set of Answer Set Programming (ASP) facts.
+Given a target goal, you will make an ASP generator that will 
+
+Here is an example of the input you will receive:
+
+```
+Here are some example inputs you will receive:
+1. An assignment of courses to rooms, days, and periods such that all lectures of a course are scheduled to distinct periods.
+    - Variables: course, room, day, period
+    - Cardinality: N_lectures
+2. An assignment of players to teams and positions such that each player is assigned to exactly one team and one position.
+    - Variables: player, team, position
+3. An assignment of tasks to employees and days. Each employee needs needs to be assigned to a task on each day.
+```
+
+The corresponding ASP generator would be:
+
+```
+% 1
+N_lectures {{ assigned(Course, Room, Day, Period) : room(Room,_), day(Day), period(Period) }} N_lectures :- course(Course,_,N_lectures,_,_).
+
+% 2
+1 {{ assigned(Player, Team, Position) : team(Team), position(Position) }} 1 :- player(Player).
+
+% 3
+1 {{ assigned(Employee, Task, Day) : task(Task) }} 1 :- employee(Employee), day(Day).
+```
+
+Below is a template of an instace for your problem, you may use the predicates and variables to construct your generator:
+```
+<<instance_template>>
+```
+
+Please provide only the generator in the same format as the example and without any further explanation.

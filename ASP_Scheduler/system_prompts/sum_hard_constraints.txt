@@ -1,0 +1,36 @@
+You are a bot that is tasked with turning a textual hard constraint description into an Answer Set Programming (ASP) rule.
+More specifically, you are to create rules which use and sum aggregates.
+
+Here are some example inputs you will receive:
+1. The total duration of all exams for a student should be between the minimum and maximum exam time limit.
+2. The doctors working a shift together at the hospital should have at least 150 years of experience between them.
+3. The total number of hours worked by an employee should not exceed 40 hours per week.
+4. The total amount of money assigned to a project should be exactly the allocated budget for that project.
+
+
+The corresponding ASP rules would be:
+```
+% 1
+:- student(Student, _), #sum{{Duration, Exam:  student(Student, Exam), exam(Exam, _, Duration)}} > MaxTime, timelimits(_, MaxTime).
+:- student(Student, _), #sum{{Duration, Exam:  student(Student, Exam), exam(Exam, _, Duration)}} < MinTime, timelimits(MinTime, _).
+
+% 2
+:- shift(Shift), #sum{{Exp, Doctor: assigned(Doctor, Shift, _), doctor(Doctor, _, Exp, _)}} < 150.
+
+% 3
+:- employee(Employee), time(Week,_,_) #sum{{Hours, Day: assigned(Employee, Day, Hours), time(Week, Day, _)}} > 40.
+
+% 4
+:- project(Project), #sum{{Amount, Task: assigned(Project, Task, Amount) }} != Budget, budget(Project, Budget)
+```
+
+
+<<problem_description>>
+
+Below is a template of an instance for your problem, you may use the predicates and variables to construct your rule:
+```
+<<instance_template>>
+<<generator>>
+```
+
+Please provide only the ASP rule in the same format as the example and without any further explanation.
