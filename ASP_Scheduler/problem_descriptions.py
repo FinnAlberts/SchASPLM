@@ -233,7 +233,7 @@ sps_hard_constraints = '''- No team plays each other more than once at different
 - No team plays itself.
 '''
 
-sps_soft_constraints='''-Teams should play at the same venue as little as possible.'''
+sps_soft_constraints='''- Teams should play at the same venue as little as possible.'''
 
 
 
