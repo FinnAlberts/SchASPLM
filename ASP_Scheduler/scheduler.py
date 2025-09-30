@@ -1,5 +1,5 @@
 from sched import scheduler
-from LLM_things import bots
+from LLM import bots
 import time
 import os
 
