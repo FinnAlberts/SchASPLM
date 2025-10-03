@@ -1,96 +1,39 @@
-from LLM_things import bots
+from sched import scheduler
+from LLM import bots
 import time
+import os
 
+BASE_DIR = os.path.dirname(__file__)
 
-# Get instance 
-def get_instance(prompt, pipe=None):
-    system_prompt = '''You are a bot that is tasked with turning textual instance data into a set of Answer Set Programming (ASP) facts.
-You will be given a set of variables and matching constants, and will turn them into ASP facts. 
+def read_system_prompt(file_path):
+    ''' Read a system prompt from a file.
 
-Here is an example of the input you will receive:
+    Args:
+        file_path (str): The path to the file containing the system prompt.
 
-```
-Instance Variables:
-- Courses: A set of courses that need to be scheduled.
-    - Variables: teacher, number of lectures, number of days, number of students
-- Rooms: A set of rooms in which the courses can be scheduled.
-    - Variables: capacity
-- Curricula: A set of curricula, where each curriculum is a set of courses that need to be scheduled in different periods.
-    - Variables: courses
-- periods: A number of numbered periods in which the courses can be scheduled.
-- Days: A set of numbered days in which the courses can be scheduled.
-- Unavailabilities: A set of periods on specific days in which a teacher is unavailable.
-    - Variables: teachers, days, periods
-```
+    Returns:
+        str: The system prompt as a string.
+    '''
+    file_path = os.path.join(BASE_DIR, file_path)
+    with open(file_path, 'r') as file:
+        system_prompt = file.read()
+    return system_prompt
 
-The corresponding ASP facts would be:
-
-```
-% Instance Template
-course(Course, Teacher, N_lectures, N_days, N_students).
-
-room(Room, Capacity).
-
-curriculum(Curriculum, Course).
-
-period(0 .. N_periods-1).
-
-day(0 .. N_days-1).
-
-unavailability(Teacher, Day, Period).
-```
-
-Please provide only the ASP facts in the same format as the example and without any further explanation.
-'''
-
-    bot = bots.load_bot(system_prompt, pipe)
-    response = bot.prompt(prompt)
-    return response
-
-# Get Generator
-def get_generator(prompt, instance_template, pipe=None):
-    system_prompt = f'''You are a bot that is tasked with turning textual goal and generator data into a set of Answer Set Programming (ASP) facts.
-Given a target goal, you will make an ASP generator that will 
-
-Here is an example of the input you will receive:
-
-```
-Here are some example inputs you will receive:
-1. An assignment of courses to rooms, days, and periods such that all lectures of a course are scheduled to distinct periods.
-    - Variables: course, room, day, period
-    - Cardinality: N_lectures
-2. An assignment of players to teams and positions such that each player is assigned to exactly one team and one position.
-    - Variables: player, team, position
-3. An assignment of tasks to employees and days. Each employee needs needs to be assigned to a task on each day.
-```
-
-The corresponding ASP generator would be:
-
-```
-% 1
-N_lectures {{ assigned(Course, Room, Day, Period) : room(Room,_), day(Day), period(Period) }} N_lectures :- course(Course,_,N_lectures,_,_).
-
-% 2
-1 {{ assigned(Player, Team, Position) : team(Team), position(Position) }} 1 :- player(Player).
-
-% 3
-1 {{ assigned(Employee, Task, Day) : task(Task) }} 1 :- employee(Employee), day(Day).
-```
-
-Below is a template of an instace for your problem, you may use the predicates and variables to construct your generator:
-```
-{instance_template}
-```
-
-Please provide only the generator in the same format as the example and without any further explanation.
-'''
-    bot = bots.load_bot(system_prompt, pipe)
-    response = bot.prompt(prompt)
-    return response
-
-# Get Hard Constraints
 def get_hard_constraints(hard_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False):
-    # If there are no hard constraints
+    ''' Get hard constraints based on their descriptions. Uses different prompts based on the type of constraint.
+
+    Args:
+        hard_constraint_descriptions (list): A list of descriptions for each hard constraint.
+        problem_description (str): The overall problem description.
+        instance_template (str): The instance template generated from the instance description.
+        generator (str): The generator generated from the generator description.
+        pipe (optional): The pipeline to use for the LLM. Defaults to None.
+        printer (bool, optional): Whether to print intermediate results. Defaults to False.
+
+    Returns:
+        list: A list of hard constraints as strings.
+    '''
+    # If there are no hard constraints we return None
     if hard_constraint_descriptions is None:
         return None
     
@@ -99,164 +42,71 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
 
     # For every hard constraint description
     for constraint_description in hard_constraint_descriptions:
-
         # Use the correct hard constraint prompt based on the type of constraint
         if 'type: count' in constraint_description.lower():
-            hard_constraint =  get_count_hard_constraints(constraint_description, problem_description, instance_template, generator, pipe)
+            # Remove type: count from the prompt
+            constraint_description = constraint_description.replace('type: count', '')
+            hard_constraint = get_partial_program(
+                system_prompt_path='system_prompts/count_hard_constraints.txt',
+                prompt=constraint_description,
+                system_prompt_variables={
+                    'problem_description': problem_description,
+                    'instance_template': instance_template,
+                    'generator': generator
+                },
+                pipe=pipe
+            )
             time.sleep(10)
         elif 'type: sum' in constraint_description.lower():
-            hard_constraint =  get_sum_hard_constraints(constraint_description, problem_description, instance_template, generator, pipe)
+            # Remove type: sum from the prompt
+            constraint_description = constraint_description.replace('type: sum', '')
+            hard_constraint = get_partial_program(
+                system_prompt_path='system_prompts/sum_hard_constraints.txt',
+                prompt=constraint_description,
+                system_prompt_variables={
+                    'problem_description': problem_description,
+                    'instance_template': instance_template,
+                    'generator': generator
+                },
+                pipe=pipe
+            )
             time.sleep(10)
         else:
-            hard_constraint =  get_regular_hard_constraints(constraint_description, problem_description, instance_template, generator, pipe)
+            hard_constraint = get_partial_program(
+                system_prompt_path='system_prompts/regular_hard_constraints.txt',
+                prompt=constraint_description,
+                system_prompt_variables={
+                    'problem_description': problem_description,
+                    'instance_template': instance_template,
+                    'generator': generator
+                },
+                pipe=pipe
+            )
             time.sleep(10)
-
+        
+        # Append the generated hard constraint to the list
         hard_constraints.append(hard_constraint)
 
         print(constraint_description + '\n' + hard_constraints[-1]+ '\n') if printer else None
     
     return hard_constraints
 
-def get_regular_hard_constraints(prompt, problem_description, instance_template, generator, pipe=None):
-    system_prompt = f'''You are a bot that is tasked with turning textual hard constraint data into a set of Answer Set Programming (ASP) facts.
-Given a set of constraints, you will turn them into ASP facts.
-
-Here are some example inputs you will receive:
-1. All lectures for a course must be scheduled to distinct periods.
-2. Lectures from the same curriculum or taught by the same teacher must be scheduled to distinct periods.
-3. If an exam is scheduled, another exam cannot be scheduled for two days.
-4. Lectures can not be booked in a period where the teacher is unavailable.
-
-The corresponding ASP rules would be:
-```
-% 1
-:- assigned(Course, Room1, Day, Period), assigned(Course, Room2, Day, Period), Room1 != Room2.
-
-% 2
-:- assigned(Course1, _, Day, Period), assigned(Course2, _, Day, Period), course(Course1, Teacher, _, _, _), course(Course2, Teacher, _, _, _), Course1 != Course2.
-:- assigned(Course1, _, Day, Period), assigned(Course2, _, Day, Period), curriculum(Curriculum, Course1), curriculum(Curriculum, Course2), Course1 != Course2.
-
-% 3
-
-:- assigned(exam, _, Day1), assigned(exam, _, Day+1).
-:- assigned(exam, _, Day1), assigned(exam, _, Day+2).
-
-% 4
-:- assigned(Course,Teacher,Day,Period), unavailability_constraint(Teacher,Day,Period).
-```
-{problem_description}
-
-Below is a template of an instance for your problem, you may use the predicates and variables to construct your rule:
-```
-{instance_template}
-{generator}
-```
-
-Please provide only the ASP rule in the same format as the example and without any further explanation.
-
-'''
-    bot = bots.load_bot(system_prompt, pipe)
-    response = bot.prompt(prompt)
-    return response
-
-def get_count_hard_constraints(prompt, problem_description, instance_template, generator, pipe=None):
-    # Remove the last line (the one that says "type: count")
-    lines = prompt.splitlines()
-    prompt = "\n".join(lines[:-1])
-
-    system_prompt = f'''You are a bot that is tasked with turning a textual hard constraint description into an Answer Set Programming (ASP) rule.
-More specifically, you are to create rules which use and count aggregates.
-
-Here are some example inputs you will receive:
-1. The number of students in each course should be less than 50.
-2. The number of students in courses should be between 100 and 200.
-3. The number of students attending a school should not exceed the limit of the school.
-4. The number of students in a school at a specific time should not exceed the limit of the school.
-
-
-The corresponding ASP rules would be:
-```
-% 1
-:- course(Course, _, _, _), #count{{Student : student(Student, Course)}} >= 50.
-
-% 2
-:- course(Course,_,_,_), #count{{Student : student(Student, Course)}} < 100.
-:- course(Course,_,_,_), #count{{Student : student(Student, Course)}} > 200.
-
-% 3
-:- course(_, School, _), #count{{Student: student(Student, Course), course(Course, School, _)}} > Limit, school(School,Limit).
-
-% 4
-:- course(_, School, Time), #count{{Student: student(Student, Course), course(Course, School, Time)}} > Limit, School(School, Limit).
-```
-Note: For count aggregates, the variables outside the aggregate function act as a "for all", meaning the variable you are counting should never be out there. Otherwise you always count exactly one.
-
-Your problem:
-{problem_description}
-
-Below is a template of an instance for your problem, you may use the predicates and variables to construct your rule:
-```
-{instance_template}
-{generator}
-```
-
-Please provide only the ASP rule in the same format as the example and without any further explanation.
-
-'''
-    bot = bots.load_bot(system_prompt, pipe)
-    response = bot.prompt(prompt)
-    return response
-
-def get_sum_hard_constraints(prompt, problem_description, instance_template, generator, pipe=None):
-    # Remove the last line (the one that says "type: count")
-    lines = prompt.splitlines()
-    prompt = "\n".join(lines[:-1])
-
-    system_prompt = f'''You are a bot that is tasked with turning a textual hard constraint description into an Answer Set Programming (ASP) rule.
-More specifically, you are to create rules which use and sum aggregates.
-
-Here are some example inputs you will receive:
-1. The total duration of all exams for a student should be between the minimum and maximum exam time limit.
-2. The doctors working a shift together at the hospital should have at least 150 years of experience between them.
-3. The total number of hours worked by an employee should not exceed 40 hours per week.
-4. The total amount of money assigned to a project should be exactly the allocated budget for that project.
-
-
-The corresponding ASP rules would be:
-```
-% 1
-:- student(Student, _), #sum{{Duration, Exam:  student(Student, Exam), exam(Exam, _, Duration)}} > MaxTime, timelimits(_, MaxTime).
-:- student(Student, _), #sum{{Duration, Exam:  student(Student, Exam), exam(Exam, _, Duration)}} < MinTime, timelimits(MinTime, _).
-
-% 2
-:- shift(Shift), #sum{{Exp, Doctor: assigned(Doctor, Shift, _), doctor(Doctor, _, Exp, _)}} < 150.
-
-% 3
-:- employee(Employee), time(Week,_,_) #sum{{Hours, Day: assigned(Employee, Day, Hours), time(Week, Day, _)}} > 40.
-
-% 4
-:- project(Project), #sum{{Amount, Task: assigned(Project, Task, Amount) }} != Budget, budget(Project, Budget)
-```
-
-
-{problem_description}
-
-Below is a template of an instance for your problem, you may use the predicates and variables to construct your rule:
-```
-{instance_template}
-{generator}
-```
-
-Please provide only the ASP rule in the same format as the example and without any further explanation.
-
-'''
-    bot = bots.load_bot(system_prompt, pipe)
-    response = bot.prompt(prompt)
-    return response
-
 # Get Soft Constraints
 def get_soft_constraints(soft_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False):
-    # If there are no soft constraints
+    ''' Get soft constraints based on their descriptions. Uses different prompts based on the type of constraint.
+
+    Args:
+        soft_constraint_descriptions (list): A list of descriptions for each soft constraint.
+        problem_description (str): The overall problem description.
+        instance_template (str): The instance template generated from the instance description.
+        generator (str): The generator generated from the generator description.
+        pipe (optional): The pipeline to use for the LLM. Defaults to None.
+        printer (bool, optional): Whether to print intermediate results. Defaults to False.
+
+    Returns:
+        list: A list of soft constraints as strings.
+    '''
+    # If there are no soft constraints we return None
     if soft_constraint_descriptions is None:
         return None
     
@@ -265,177 +115,65 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
 
     # For every hard constraint description
     for constraint_description in soft_constraint_descriptions:
-
-        
         # Use the correct soft constraint prompt based on the type of constraint
         if 'type: count' in constraint_description.lower():
-            soft_constraint =  get_count_soft_constraint(constraint_description, problem_description, instance_template, generator, pipe)
+            # Remove type: count from the prompt
+            constraint_description = constraint_description.replace('type: count', '')
+            soft_constraint = get_partial_program(
+                system_prompt_path='system_prompts/count_soft_constraints.txt',
+                prompt=constraint_description,
+                system_prompt_variables={
+                    'problem_description': problem_description,
+                    'instance_template': instance_template,
+                    'generator': generator
+                },
+                pipe=pipe
+            )
+            time.sleep(10)
         elif 'type: sum' in constraint_description.lower():
-            soft_constraint =  get_sum_soft_constraint(constraint_description, problem_description, instance_template, generator, pipe)
+            # Remove type: sum from the prompt
+            constraint_description = constraint_description.replace('type: sum', '')
+            soft_constraint = get_partial_program(
+                system_prompt_path='system_prompts/sum_soft_constraints.txt',
+                prompt=constraint_description,
+                system_prompt_variables={
+                    'problem_description': problem_description,
+                    'instance_template': instance_template,
+                    'generator': generator
+                },
+                pipe=pipe
+            )
+            time.sleep(10)
         else:
-            soft_constraint =  get_regular_soft_constraint(constraint_description, problem_description, instance_template, generator, pipe)
+            soft_constraint = get_partial_program(
+                system_prompt_path='system_prompts/regular_soft_constraints.txt',
+                prompt=constraint_description,
+                system_prompt_variables={
+                    'problem_description': problem_description,
+                    'instance_template': instance_template,
+                    'generator': generator
+                },
+                pipe=pipe
+            )
+            time.sleep(10)
 
+        # Append the generated soft constraint to the list
         soft_constraints.append(soft_constraint)
 
         print(constraint_description + '\n' + soft_constraints[-1]+ '\n') if printer else None
     
     return soft_constraints
 
-# 
-def get_regular_soft_constraint(prompt, problem_description, instance_template, generator, pipe=None):
-    system_prompt = f'''You are a bot that is tasked with turning textual hard constraint data into a set of Answer Set Programming (ASP) facts.
-Given a set of constraints, you will turn them into ASP facts.
-
-Here are some example inputs you will receive:
-1 Number of students in a course should be less than or equal to the capacity of the room.
-    Penalty: 1 for each student over the capacity.
-2 Lectures of a course should be scheduled over a minimum number of days
-    Penalty: 5 for each day under the minimum.
-3 Lectures in a curriculum should be in adjacent periods.
-    Penalty: 2 for each isolated lecture in a curriculum.
-4 All lectures of a course should be held in the same room.
-    Penalty: 1 for each additional room used beyond the first.
-
-The corresponding ASP rules would be:
-```
-% 1
-penalty("RoomCapacity",assigned(Course,Room,Day,Period),(N_students-Cap)*1) :- assigned(Course,Room,Day,Period), course(Course,_,_,_,N_students), room(Room,Cap), N_students > Cap.
-
-% 2
-working_day(Course,Day) :- assigned(Course,_,Day,Period).
-penalty("MinWorkingDays",course(Course,N_days,N),(N_days-N)*5) :- course(Course,_,_,N_days,_), N = {{ working_day(Course,Day) }}, N < N_days.
-
-% 3
-scheduled_curricula(Curriculum,Day,Period) :- assigned(Course,_,Day,Period), curriculum(Curriculum,Course).
-penalty("IsolatedLectures",isolated_lectures(Curriculum,Day,Period),2) :- scheduled_curricula(Curriculum,Day,Period), not scheduled_curricula(Curriculum,Day,Period-1), not scheduled_curricula(Curriculum,Day,Period+1).
-
-% 4
-using_room(Course,Room) :- assigned(Course,Room,Day,Period).
-penalty("RoomStability",using_room(Course,N),(N-1)*1) :- course(Course,_,_,_,_), N = {{ using_room(Course,R) }}, N > 1.
-```
-
-{problem_description}
-
-Below is a template of an instance for your problem, you may use the predicates and variables to construct your rule:
-```
-{instance_template}
-{generator}
-```
-
-Please provide only the ASP rule in the same format as the example and without any further explanation.
-
-'''
-    bot = bots.load_bot(system_prompt, pipe)
-    response = bot.prompt(prompt)
-    return response
-
-def get_count_soft_constraint(prompt, problem_description, instance_template, generator, pipe=None):
-    system_prompt = f'''You are a bot that is tasked with turning textual hard constraint data into a set of Answer Set Programming (ASP) facts.
-Given a set of constraints, you will turn them into ASP facts.
-
-Here are some arbitrary example inputs from different problems:
-1 Number of students in a course should be less than or equal to the capacity of the room.
-    Penalty: 1 for each student over the capacity.
-2 The number of students in a school at a specific time should not exceed the limit of the school.
-    Penalty: 1 for each student over the limit.
-3 At any given time, there should be exactly as many exams as rooms.
-    Penalty: 10 for each exam over the number of rooms.
-    Penalty: 5 for each exam under the number of rooms.
-4 Surgeons should perform two surgeries per day
-    Penalty: 2 for each time a surgeon does not have two surgeries scheduled in a day
-
-
-The corresponding ASP rules would be:
-```
-% 1
-student_count(Count, Course, Room) :- course(Course, _, _, _, _), room(Room, _), #count{{Student : student(Student, Course), assigned(Course,Room,_,_)}} = Count.
-penalty("RoomCapacity",student_count(Count,Course,Room),(Count-Cap)*1) :- student_count(Count,_,Room), room(Room,Cap), Count > Cap.
-
-% 2
-student_count(Count, School, Time) :- school(School), course(_, _, Time), #count{{Student:, student(Student, Course), course(Course, Room, Time), room(Room, School)}} = Count.
-penalty("SchoolLimit",student_count(Count, School, Time, Limit),(Count-Limit)*1) :- count(Count,School,Time), school(School, Limit), Count > Limit.
-
-% 3
-% Note: Please use this solution when we have an interval. Do not use an absolute value function.
-exam_count(Count, Time) :- period(Time), #count{{Exam : assigned(Exam,_,_,Time)}} = Count.
-room_count(Count, Time) :- period(Time), #count{{Room : assigned(_,_,Room,Time)}} = Count.
-penalty("RoomStability",exam_count(ExamCount, Time),(ExamCount-RoomCount)*10) :- exam_count(ExamCount, Time), room_count(RoomCount, Time), ExamCount > RoomCount.
-penalty("RoomStability",exam_count(ExamCount, Time),(RoomCount-ExamCount)*5) :- exam_count(ExamCount, Time), room_count(RoomCount, Time), ExamCount < RoomCount.
-
-% 4 
-surgery_count(Count, Surgeon, Day) :- surgeon(Surgeon), timeslots(_, _, Day), #count{{surgery: assigned(Surgery, Time, _), timeslots(_, Time, Day), surgery(Surgery, _, Surgeon)}} = Count.
-penalty("SameTimeSurgery",surgery_count(Count, Hospital, Time),2) :- surgery_count(Count, Hospital, Time), Count != 2.
-
-```
-
-
-Your problem:
-{problem_description}
-
-Below is a template of an instance for your problem, you may use the predicates and variables to construct your rule:
-```
-{instance_template}
-{generator}
-```
-
-Please provide only the ASP rule in the same format as the example and without any further explanation.
-
-'''
-    bot = bots.load_bot(system_prompt, pipe)
-    response = bot.prompt(prompt)
-    return response
-
-def get_sum_soft_constraint(prompt, problem_description, instance_template, generator, pipe=None):
-    system_prompt = f'''You are a bot that is tasked with turning textual hard constraint data into a set of Answer Set Programming (ASP) facts.
-Given a set of constraints, you will turn them into ASP facts.
-
-Here are some arbitrary example inputs from different scheduling problems:
-1 The total duration of all exams for a student should be less than the specified exam time limit.
-    Penalty: 1 for each minute that the total is too long.
-2 The doctors working a shift together at the hospital should have at least 150 years of experience between them.
-    Penalty: 2 for each year of experience too little
-3 The total number of hours worked by an employee should not exceed 40 hours per week.
-    Penalty: 3 for each hour over the limit.
-4 The total amount of money assigned to a project should be exactly 100,000.
-    Penalty: 1 for each unit over the budget.
-    Penalty: 1 for each unit under the budget.
-
-The corresponding ASP rules would be:
-```
-% 1 
-timesum(TimeSum, Student) :- student(Student, _), #sum{{Duration, Exam: student(Student, Exam), exam(Exam, _, Duration)}} = TimeSum.
-penalty("ExamTime", timesum(TimeSum, Student), (TimeSum - Timelimit)*1) :- timesum(TimeSum, Student), timelimit(TimeLimit), TimeSum > TimeLimit.
-
-% 2 
-expsum(ExpSum, Shift) :- shift(Shift, _, _), #sum{{Exp, Doctor: assigned(Doctor, Shift, _), doctor(Doctor, _, Exp, _)}} = ExpSum.
-penalty("LackOfExperience", expsum(ExpSum, Shift), (150 - ExpSum)*2) :- expsum(ExpSum, Shift), ExpSum < 150.
-
-% 3 
-hoursum(HoursSum, Week, Employee) :- employee(Employee, _, _), time(Week,_,_) #sum{{Hours, Day: assigned(Employee, Day, Hours), time(Week, Day, _)}} = HoursSum.
-penalty("ExcessHours", hoursum(HoursSum, Week, Employee), (HoursSum - 40)*3) :- hoursum(HoursSum, Group), HoursSum > 40.
-
-% 4 
-budgets(BudgetSum, Project) :- project(Project), #sum{{Amount, Task: assigned(Project, Task, Amount) }} = BudgetSum.
-penalty("OverBudgetLimit", budgets(BudgetSum, Project), (BudgetSum - 100000) * 1) :- budgets(BudgetSum, Project), BudgetSum > 100000.
-penalty("UnderBudgetLimit", budgets(BudgetSum, Project), (100000 - BudgetSum) * 1) :- budgets(BudgetSum, Project), BudgetSum < 100000.
-```
-
-{problem_description}
-
-Below is a template of an instance for your problem, you may use the predicates and variables to construct your rule:
-```
-{instance_template}
-{generator}
-```
-
-Please provide only the ASP rule in the same format as the example and without any further explanation.
-
-'''
-    bot = bots.load_bot(system_prompt, pipe)
-    response = bot.prompt(prompt)
-    return response
-
 def extract_constraints(descriptions, constraints):
+    ''' Extract ASP constraints from the LLM output, removing markdown and comments. Also add the description as a comment before each constraint.
+
+    Args:
+        descriptions (list): A list of descriptions for each constraint.
+        constraints (list): A list of constraints as returned by the LLM.
+
+    Returns:
+        str: A string containing all the extracted constraints with descriptions as comments.
+    '''
     program = ''
     for i in range(len(descriptions)):
         description = descriptions[i]
@@ -454,14 +192,19 @@ def extract_constraints(descriptions, constraints):
             else:
                 asp += line + '\n'
         
-        program += f'''% {description}
-{asp}\n\n'''
+        program += f'''% {description}\n{asp}\n\n'''
     
     return program
 
-
-# Turn bullet points into a list of strings
 def extract_bullet_points(text):
+    ''' Extract bullet points from a text block, where main points start with '- ' and can span multiple lines.
+
+    Args:
+        text (str): The input text containing bullet points.
+
+    Returns:
+        list: A list of strings, each representing a main point with its sub-points.
+    '''
     lines = text.split('\n')
     result = []
     current_point = ""
@@ -480,9 +223,15 @@ def extract_bullet_points(text):
     
     return result
 
-
-# Extract all descriptions from a full problem description
 def extract_descriptions(problem):
+    ''' Extract all descriptions from a full problem description.
+
+    Args:
+        problem (dict): A dictionary containing the problem descriptions.
+
+    Returns:
+        tuple: A tuple containing the extracted descriptions.
+    '''
 
     problem_description = problem['problem_description']
     instance_description = problem['instance_description']
@@ -492,30 +241,74 @@ def extract_descriptions(problem):
    
     return problem_description, instance_description, generator_description, hard_constraint_descriptions, soft_constraint_descriptions
 
+def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, pipe=None):
+    ''' Generate a partial ASP program based on a system prompt and variables.
 
-# Generate a full asp program consisting of and instance template, solution generator, hard constraints, and soft constraints
+    Args:
+        system_prompt_path (str): The path to the system prompt file.
+        system_prompt_variables (dict): A dictionary containing variables to replace in the system prompt.
+        prompt (str): The user prompt to send to the LLM for the specific partial program.
+        pipe (optional): The pipeline to use for the LLM. Defaults to None.
+
+    Returns:
+        str: The generated partial ASP program as a string.
+    '''
+
+    # Read the system prompt and replace variables
+    system_prompt = read_system_prompt(system_prompt_path)
+    
+    for key, value in system_prompt_variables.items():
+        system_prompt = system_prompt.replace(f'<<{key}>>', value)
+
+    # Load the bot and get the response
+    bot = bots.load_bot(system_prompt, pipe)
+    response = bot.prompt(prompt)
+    return response
+
 def full_ASP_program(problem, printer=False, pipe=None):
+    ''' Generate a full ASP program based on the problem description.
+
+    Args:
+        problem (dict): A dictionary containing the problem descriptions.
+        printer (bool, optional): Whether to print intermediate results. Defaults to False.
+        pipe (optional): The pipeline to use for the LLM. Defaults to None.
+
+    Returns:
+        str: The full ASP program as a string.
+    '''
 
     problem_description, instance_description, generator_description, hard_constraint_descriptions, soft_constraint_descriptions = extract_descriptions(problem)
 
-    # Generate an instance template based on problem description
-    instance_template = get_instance(instance_description, pipe=pipe)
+    # Generate an instance template based on instance description
+    instance_template = get_partial_program(
+        system_prompt_path='system_prompts/instance.txt',
+        prompt=instance_description,
+        pipe=pipe
+    )
     print('Instance Template:\n' + instance_template) if printer else None
     
-    # Use problem description and instance template to create a generator for the solution
-    generator = get_generator(generator_description, instance_template, pipe=pipe)
+    # Generate a generator based on generator description and instance template
+    generator = get_partial_program(
+        system_prompt_path='system_prompts/generator.txt',
+        prompt=generator_description,
+        system_prompt_variables={
+            'instance_template': instance_template
+        },
+        pipe=pipe
+    )
     print('\n\nGenerator\n' + generator) if printer else None
 
-    # Use instance and generator to create hard constraints
+    # Generate hard constraints based on hard constraint descriptions, problem description, instance template and generator
     hard_constraints = get_hard_constraints(hard_constraint_descriptions, problem_description, instance_template, generator, pipe=pipe, printer=printer)
-    
-    # Use instance and generator to create soft constraints
+
+    # Generate soft constraints based on soft constraint descriptions, problem description, instance template and generator
     soft_constraints = get_soft_constraints(soft_constraint_descriptions, problem_description, instance_template, generator, pipe=pipe, printer=printer)
     
+    # Create a string that contains all hard and soft constraints with descriptions as comments
     hard_constraints_str = extract_constraints(hard_constraint_descriptions, hard_constraints)
     soft_constraints_str = extract_constraints(soft_constraint_descriptions, soft_constraints)
     
-
+    # Combine everything into a full ASP program
     full_program = f'''
 {instance_template}
 
@@ -534,6 +327,5 @@ def full_ASP_program(problem, printer=False, pipe=None):
 % Objective function
 #minimize {{ Penalty,Reason,SoftConstraint : penalty(SoftConstraint,Reason,Penalty) }}.
 '''
-
 
     return full_program

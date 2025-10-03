@@ -1,4 +1,4 @@
-from LLM_things import bots
+from LLM import bots
 import time
 
 

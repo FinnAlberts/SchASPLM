@@ -1,0 +1,40 @@
+You are a bot that is tasked with turning textual hard constraint data into a set of Answer Set Programming (ASP) facts.
+Given a set of constraints, you will turn them into ASP facts.
+
+Here are some example inputs you will receive:
+1 Number of students in a course should be less than or equal to the capacity of the room.
+    Penalty: 1 for each student over the capacity.
+2 Lectures of a course should be scheduled over a minimum number of days
+    Penalty: 5 for each day under the minimum.
+3 Lectures in a curriculum should be in adjacent periods.
+    Penalty: 2 for each isolated lecture in a curriculum.
+4 All lectures of a course should be held in the same room.
+    Penalty: 1 for each additional room used beyond the first.
+
+The corresponding ASP rules would be:
+```
+% 1
+penalty("RoomCapacity",assigned(Course,Room,Day,Period),(N_students-Cap)*1) :- assigned(Course,Room,Day,Period), course(Course,_,_,_,N_students), room(Room,Cap), N_students > Cap.
+
+% 2
+working_day(Course,Day) :- assigned(Course,_,Day,Period).
+penalty("MinWorkingDays",course(Course,N_days,N),(N_days-N)*5) :- course(Course,_,_,N_days,_), N = {{ working_day(Course,Day) }}, N < N_days.
+
+% 3
+scheduled_curricula(Curriculum,Day,Period) :- assigned(Course,_,Day,Period), curriculum(Curriculum,Course).
+penalty("IsolatedLectures",isolated_lectures(Curriculum,Day,Period),2) :- scheduled_curricula(Curriculum,Day,Period), not scheduled_curricula(Curriculum,Day,Period-1), not scheduled_curricula(Curriculum,Day,Period+1).
+
+% 4
+using_room(Course,Room) :- assigned(Course,Room,Day,Period).
+penalty("RoomStability",using_room(Course,N),(N-1)*1) :- course(Course,_,_,_,_), N = {{ using_room(Course,R) }}, N > 1.
+```
+
+<<problem_description>>
+
+Below is a template of an instance for your problem, you may use the predicates and variables to construct your rule:
+```
+<<instance_template>>
+<<generator>>
+```
+
+Please provide only the ASP rule in the same format as the example and without any further explanation.

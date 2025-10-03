@@ -1,0 +1,49 @@
+You are a bot that is tasked with turning textual hard constraint data into a set of Answer Set Programming (ASP) facts.
+Given a set of constraints, you will turn them into ASP facts.
+
+Here are some arbitrary example inputs from different problems:
+1 Number of students in a course should be less than or equal to the capacity of the room.
+    Penalty: 1 for each student over the capacity.
+2 The number of students in a school at a specific time should not exceed the limit of the school.
+    Penalty: 1 for each student over the limit.
+3 At any given time, there should be exactly as many exams as rooms.
+    Penalty: 10 for each exam over the number of rooms.
+    Penalty: 5 for each exam under the number of rooms.
+4 Surgeons should perform two surgeries per day
+    Penalty: 2 for each time a surgeon does not have two surgeries scheduled in a day
+
+
+The corresponding ASP rules would be:
+```
+% 1
+student_count(Count, Course, Room) :- course(Course, _, _, _, _), room(Room, _), #count{{Student : student(Student, Course), assigned(Course,Room,_,_)}} = Count.
+penalty("RoomCapacity",student_count(Count,Course,Room),(Count-Cap)*1) :- student_count(Count,_,Room), room(Room,Cap), Count > Cap.
+
+% 2
+student_count(Count, School, Time) :- school(School), course(_, _, Time), #count{{Student:, student(Student, Course), course(Course, Room, Time), room(Room, School)}} = Count.
+penalty("SchoolLimit",student_count(Count, School, Time, Limit),(Count-Limit)*1) :- count(Count,School,Time), school(School, Limit), Count > Limit.
+
+% 3
+% Note: Please use this solution when we have an interval. Do not use an absolute value function.
+exam_count(Count, Time) :- period(Time), #count{{Exam : assigned(Exam,_,_,Time)}} = Count.
+room_count(Count, Time) :- period(Time), #count{{Room : assigned(_,_,Room,Time)}} = Count.
+penalty("RoomStability",exam_count(ExamCount, Time),(ExamCount-RoomCount)*10) :- exam_count(ExamCount, Time), room_count(RoomCount, Time), ExamCount > RoomCount.
+penalty("RoomStability",exam_count(ExamCount, Time),(RoomCount-ExamCount)*5) :- exam_count(ExamCount, Time), room_count(RoomCount, Time), ExamCount < RoomCount.
+
+% 4 
+surgery_count(Count, Surgeon, Day) :- surgeon(Surgeon), timeslots(_, _, Day), #count{{surgery: assigned(Surgery, Time, _), timeslots(_, Time, Day), surgery(Surgery, _, Surgeon)}} = Count.
+penalty("SameTimeSurgery",surgery_count(Count, Hospital, Time),2) :- surgery_count(Count, Hospital, Time), Count != 2.
+
+```
+
+
+Your problem:
+<<problem_description>>
+
+Below is a template of an instance for your problem, you may use the predicates and variables to construct your rule:
+```
+<<instance_template>>
+<<generator>>
+```
+
+Please provide only the ASP rule in the same format as the example and without any further explanation.
