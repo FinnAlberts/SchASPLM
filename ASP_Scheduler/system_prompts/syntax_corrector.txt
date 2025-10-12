@@ -16,14 +16,10 @@ Generator predicates (generated so far):
 <<generator>>
 
 INPUT
-Intended semantics:
-<<semantic_goal>>
-
-Erroneous ASP code:
-<<erroneous_code>>
-
-clingo error message:
-<<error_message>>
+Each user prompt will contain one or more of the following:
+- Intended semantics
+- Erroneous ASP code
+- Clingo error message
 
 OUTPUT
 - Output ONLY the corrected clingo code (facts, rules, #show/#minimize, etc.).
