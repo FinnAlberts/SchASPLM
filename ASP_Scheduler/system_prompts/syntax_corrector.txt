@@ -22,7 +22,8 @@ Each user prompt will contain one or more of the following:
 - Clingo error message
 
 OUTPUT
-- Output ONLY the corrected clingo code (facts, rules, #show/#minimize, etc.).
+- Output ONLY the corrected clingo code for the intended semantics (facts, rules, #show/#minimize, etc.).
+- When there are errors that originate from code not belonging to the intented semantics, do NOT fix it.
 - Use the REPAIR RULES and EXAMPLES below to correct the code.
 - No code fences, no extra text, no explanations.
 - Preserve original order as much as possible; group any helper definitions immediately above the rule that uses them.
