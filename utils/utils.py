@@ -95,8 +95,6 @@ if __name__ == "__main__":
         program = [line.replace("\n", "") for line in program]
         program = [line for line in program if line.strip()]
 
-    print(program)
-
     syntax_errors = check_syntax(program)
 
     for error in syntax_errors:
