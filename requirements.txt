@@ -6,3 +6,4 @@ torch
 torchvision
 openai
 ipykernel
+clingo
