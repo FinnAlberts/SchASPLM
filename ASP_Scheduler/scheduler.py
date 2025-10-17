@@ -2,6 +2,8 @@ from sched import scheduler
 from LLM import bots
 import time
 import os
+import re
+import utils.utils as utils
 
 BASE_DIR = os.path.dirname(__file__)
 
@@ -19,7 +21,7 @@ def read_system_prompt(file_path):
         system_prompt = file.read()
     return system_prompt
 
-def get_hard_constraints(hard_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False):
+def get_hard_constraints(hard_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False, k=0):
     ''' Get hard constraints based on their descriptions. Uses different prompts based on the type of constraint.
 
     Args:
@@ -29,6 +31,7 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
         generator (str): The generator generated from the generator description.
         pipe (optional): The pipeline to use for the LLM. Defaults to None.
         printer (bool, optional): Whether to print intermediate results. Defaults to False.
+        k (int, optional): The number of retries to get a syntactically correct response. Defaults to 0 (no retries).
 
     Returns:
         list: A list of hard constraints as strings.
@@ -54,7 +57,9 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
                     'instance_template': instance_template,
                     'generator': generator
                 },
-                pipe=pipe
+                pipe=pipe,
+                k=k,
+                printer=printer
             )
             time.sleep(10)
         elif 'type: sum' in constraint_description.lower():
@@ -68,7 +73,9 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
                     'instance_template': instance_template,
                     'generator': generator
                 },
-                pipe=pipe
+                pipe=pipe,
+                k=k,
+                printer=printer
             )
             time.sleep(10)
         else:
@@ -80,7 +87,9 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
                     'instance_template': instance_template,
                     'generator': generator
                 },
-                pipe=pipe
+                pipe=pipe,
+                k=k,
+                printer=printer
             )
             time.sleep(10)
         
@@ -92,7 +101,7 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
     return hard_constraints
 
 # Get Soft Constraints
-def get_soft_constraints(soft_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False):
+def get_soft_constraints(soft_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False, k=0):
     ''' Get soft constraints based on their descriptions. Uses different prompts based on the type of constraint.
 
     Args:
@@ -102,6 +111,7 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
         generator (str): The generator generated from the generator description.
         pipe (optional): The pipeline to use for the LLM. Defaults to None.
         printer (bool, optional): Whether to print intermediate results. Defaults to False.
+        k (int, optional): The number of retries to get a syntactically correct response. Defaults to 0 (no retries).
 
     Returns:
         list: A list of soft constraints as strings.
@@ -127,7 +137,9 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
                     'instance_template': instance_template,
                     'generator': generator
                 },
-                pipe=pipe
+                pipe=pipe,
+                k=k,
+                printer=printer
             )
             time.sleep(10)
         elif 'type: sum' in constraint_description.lower():
@@ -141,7 +153,9 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
                     'instance_template': instance_template,
                     'generator': generator
                 },
-                pipe=pipe
+                pipe=pipe,
+                k=k,
+                printer=printer
             )
             time.sleep(10)
         else:
@@ -153,7 +167,9 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
                     'instance_template': instance_template,
                     'generator': generator
                 },
-                pipe=pipe
+                pipe=pipe,
+                k=k,
+                printer=printer
             )
             time.sleep(10)
 
@@ -241,37 +257,90 @@ def extract_descriptions(problem):
    
     return problem_description, instance_description, generator_description, hard_constraint_descriptions, soft_constraint_descriptions
 
-def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, pipe=None):
+def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, pipe=None, k=0, printer=False):
     ''' Generate a partial ASP program based on a system prompt and variables.
 
     Args:
         system_prompt_path (str): The path to the system prompt file.
-        system_prompt_variables (dict): A dictionary containing variables to replace in the system prompt.
         prompt (str): The user prompt to send to the LLM for the specific partial program.
+        system_prompt_variables (dict): A dictionary containing variables to replace in the system prompt.
         pipe (optional): The pipeline to use for the LLM. Defaults to None.
+        k (int, optional): The number of retries to get a syntactically correct response. Defaults to 0 (no retries).
+        printer (bool, optional): Whether to print intermediate results. Defaults to False.
 
     Returns:
         str: The generated partial ASP program as a string.
     '''
 
+    # Initialize response list and error list
+    responses = []
+    errors = []
+
     # Read the system prompt and replace variables
     system_prompt = read_system_prompt(system_prompt_path)
     
+    # Replace variables in the system prompt
     for key, value in system_prompt_variables.items():
         system_prompt = system_prompt.replace(f'<<{key}>>', value)
 
     # Load the bot and get the response
-    bot = bots.load_bot(system_prompt, pipe)
-    response = bot.prompt(prompt)
-    return response
+    asp_generator_bot = bots.load_bot(system_prompt, pipe)
+    responses += [asp_generator_bot.prompt(prompt)]
 
-def full_ASP_program(problem, printer=False, pipe=None):
+    # Check if the response is syntactically correct ASP
+    errors += [utils.check_syntax(responses[-1].splitlines())]
+
+    # Create a repair prompt if k > 0
+    if k > 0:
+        repair_prompt = read_system_prompt('system_prompts/syntax_corrector.txt')
+
+        # Replace variables in the system prompt
+        for key, value in system_prompt_variables.items():
+            repair_prompt = repair_prompt.replace(f'<<{key}>>', value)
+
+        # Replace remaining variables with None using regex
+        repair_prompt = re.sub(r'<<[^<>]*>>', 'None', repair_prompt)
+
+        # Create a new bot for repairing the syntax
+        syntax_corrector_bot = bots.load_bot(repair_prompt, pipe)
+    
+    # Try to repair the syntax k times
+    while k > 0 and len(errors[-1]) > 0:
+        k -= 1
+
+        # Find only the error messages that belong to the generated lines
+        error_messages = [error["message"] for error in errors[-1] if error['code'].strip() in responses[-1].strip()]
+
+        # Create a prompt for repairing the syntax
+        repair_prompt = f"Intended semantics:\n{prompt}\n\nErroneous ASP code:\n{responses[-1]}\n\nClingo error messages:\n{error_messages}"
+        responses += [syntax_corrector_bot.prompt(repair_prompt)]
+
+        # Check the syntax again (after adding instance template and generator to the program if present)
+        program = responses[-1]
+        for key, value in system_prompt_variables.items():
+            if key in ['generator', 'instance_template']:
+                program = value + '\n' + program
+
+        errors += [utils.check_syntax(program.splitlines())]
+
+    print("================================================================================") if printer else None
+    print(f'Final response after {len(responses)-1} retries with {len(errors[-1])} errors:\n{responses[-1]}\nErrors: {errors[-1]}') if printer else None
+    print("================================================================================") if printer else None
+    if len(responses) > 1 and printer:
+        for response, error in zip(responses, errors):
+            print(f'Response:\n{response}\nErrors:\n{error}\n')
+            print("--------------------------------------------------------------------------------")
+
+    return responses[-1]
+
+def full_ASP_program(problem, printer=False, pipe=None, k=0):
     ''' Generate a full ASP program based on the problem description.
 
     Args:
         problem (dict): A dictionary containing the problem descriptions.
         printer (bool, optional): Whether to print intermediate results. Defaults to False.
         pipe (optional): The pipeline to use for the LLM. Defaults to None.
+        k (int, optional): The number of retries to get a syntactically correct response. Defaults to 0 (no retries).
 
     Returns:
         str: The full ASP program as a string.
@@ -283,7 +352,9 @@ def full_ASP_program(problem, printer=False, pipe=None):
     instance_template = get_partial_program(
         system_prompt_path='system_prompts/instance.txt',
         prompt=instance_description,
-        pipe=pipe
+        pipe=pipe,
+        k=k,
+        printer=printer
     )
     print('Instance Template:\n' + instance_template) if printer else None
     
@@ -294,16 +365,18 @@ def full_ASP_program(problem, printer=False, pipe=None):
         system_prompt_variables={
             'instance_template': instance_template
         },
-        pipe=pipe
+        pipe=pipe,
+        k=k,
+        printer=printer
     )
     print('\n\nGenerator\n' + generator) if printer else None
 
     # Generate hard constraints based on hard constraint descriptions, problem description, instance template and generator
-    hard_constraints = get_hard_constraints(hard_constraint_descriptions, problem_description, instance_template, generator, pipe=pipe, printer=printer)
+    hard_constraints = get_hard_constraints(hard_constraint_descriptions, problem_description, instance_template, generator, pipe=pipe, printer=printer, k=k)
 
     # Generate soft constraints based on soft constraint descriptions, problem description, instance template and generator
-    soft_constraints = get_soft_constraints(soft_constraint_descriptions, problem_description, instance_template, generator, pipe=pipe, printer=printer)
-    
+    soft_constraints = get_soft_constraints(soft_constraint_descriptions, problem_description, instance_template, generator, pipe=pipe, printer=printer, k=k)
+
     # Create a string that contains all hard and soft constraints with descriptions as comments
     hard_constraints_str = extract_constraints(hard_constraint_descriptions, hard_constraints)
     soft_constraints_str = extract_constraints(soft_constraint_descriptions, soft_constraints)
