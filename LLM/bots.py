@@ -218,9 +218,18 @@ class DeepseekDirect_Bot():
 def load_pipe(model_checkpoint="meta-llama/Meta-Llama-3-8B-Instruct", local_dir="./local_models", quantization_config=None, save=False):
     if model_checkpoint == None:
         return None
+
+    # If HF_KEY is present, set HUGGINGFACE_HUB_TOKEN so transformers/huggingface_hub can authenticate
+    if HF_KEY:
+        os.environ.setdefault('HUGGINGFACE_HUB_TOKEN', HF_KEY)
     
     torch.cuda.empty_cache()
-    
+
+    # prefer float16 on CUDA devices (works on most NVIDIA consumer GPUs); otherwise keep bfloat16
+    dtype = torch.bfloat16
+    if torch.cuda.is_available():
+        dtype = torch.float16
+
     # Check if the model and tokenizer are already stored locally
     model_directory = local_dir + '/' + model_checkpoint
     if not os.path.exists(model_directory):
