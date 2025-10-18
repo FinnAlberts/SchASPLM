@@ -56,7 +56,7 @@ def check_syntax(program: list):
 
     # Save the program to a temporary file
     # FINN: This is a bit hacky, but Clingo's parse_files function requires a file. Would parse_string be better? @George
-    with open("temp.lp", "w") as f:
+    with open("temp.lp", "w", encoding="utf-8") as f:
         for line in program:
             f.write(line + "\n")
 
@@ -90,7 +90,7 @@ def check_syntax(program: list):
 
 if __name__ == "__main__":
     # Test program
-    with open("./testfile.lp", "r") as f:
+    with open("./testfile.lp", "r", encoding='utf-8') as f:
         program = f.readlines()
         program = [line.replace("\n", "") for line in program]
         program = [line for line in program if line.strip()]
