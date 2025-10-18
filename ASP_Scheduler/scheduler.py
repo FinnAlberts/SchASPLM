@@ -21,6 +21,16 @@ def read_system_prompt(file_path):
         system_prompt = file.read()
     return system_prompt
 
+
+def sleep_if_using_remote_clients(pipe, seconds=10):
+    """Sleep for `seconds` only if the provided pipe indicates a remote client.
+
+    Remote clients are represented by `pipe is None` (use HF API) or the
+    string `'deepseek'` (the Deepseek provider).
+    """
+    if pipe is None or pipe == 'deepseek':
+        time.sleep(seconds)
+
 def get_hard_constraints(hard_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False, k=0):
     ''' Get hard constraints based on their descriptions. Uses different prompts based on the type of constraint.
 
@@ -61,7 +71,7 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
                 k=k,
                 printer=printer
             )
-            time.sleep(10)
+            sleep_if_using_remote_clients(pipe)
         elif 'type: sum' in constraint_description.lower():
             # Remove type: sum from the prompt
             constraint_description = constraint_description.replace('type: sum', '')
@@ -77,7 +87,7 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
                 k=k,
                 printer=printer
             )
-            time.sleep(10)
+            sleep_if_using_remote_clients(pipe)
         else:
             hard_constraint = get_partial_program(
                 system_prompt_path='system_prompts/regular_hard_constraints.txt',
@@ -91,7 +101,7 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
                 k=k,
                 printer=printer
             )
-            time.sleep(10)
+            sleep_if_using_remote_clients(pipe)
         
         # Append the generated hard constraint to the list
         hard_constraints.append(hard_constraint)
@@ -141,7 +151,7 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
                 k=k,
                 printer=printer
             )
-            time.sleep(10)
+            sleep_if_using_remote_clients(pipe)
         elif 'type: sum' in constraint_description.lower():
             # Remove type: sum from the prompt
             constraint_description = constraint_description.replace('type: sum', '')
@@ -157,7 +167,7 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
                 k=k,
                 printer=printer
             )
-            time.sleep(10)
+            sleep_if_using_remote_clients(pipe)
         else:
             soft_constraint = get_partial_program(
                 system_prompt_path='system_prompts/regular_soft_constraints.txt',
@@ -171,7 +181,7 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
                 k=k,
                 printer=printer
             )
-            time.sleep(10)
+            sleep_if_using_remote_clients(pipe)
 
         # Append the generated soft constraint to the list
         soft_constraints.append(soft_constraint)
