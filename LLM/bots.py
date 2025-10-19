@@ -247,7 +247,8 @@ def load_pipe(model_checkpoint="meta-llama/Meta-Llama-3-8B-Instruct", local_dir=
             model = AutoModelForCausalLM.from_pretrained(model_checkpoint, device_map="auto", trust_remote_code=True, quantization_config=quantization_config)
         
         else:
-            model = AutoModelForCausalLM.from_pretrained(model_checkpoint, device_map="auto", torch_dtype=torch.bfloat16)
+            # use the chosen dtype variable for consistency
+            model = AutoModelForCausalLM.from_pretrained(model_checkpoint, device_map="auto", torch_dtype=dtype)
         
         # Save model and tokenizer locally
         if save:
@@ -262,7 +263,7 @@ def load_pipe(model_checkpoint="meta-llama/Meta-Llama-3-8B-Instruct", local_dir=
             "text-generation",
             model=model,
             tokenizer=tokenizer,
-            model_kwargs={"torch_dtype": torch.bfloat16},
+            model_kwargs={"dtype": torch.bfloat16},
             device_map="auto",
             )
     else:
@@ -272,7 +273,7 @@ def load_pipe(model_checkpoint="meta-llama/Meta-Llama-3-8B-Instruct", local_dir=
         pipe = pipeline(
             "text-generation",
             model=model_directory,
-            model_kwargs={"torch_dtype": torch.bfloat16},
+            model_kwargs={"dtype": torch.bfloat16},
             device_map="auto",
             )
 
@@ -285,7 +286,7 @@ def load_from_snellius(directory):
     pipe = pipeline(
         "text-generation",
         model=directory,
-        model_kwargs={"torch_dtype": torch.bfloat16},
+        model_kwargs={"dtype": torch.bfloat16},
         device_map="auto",
         )
 
