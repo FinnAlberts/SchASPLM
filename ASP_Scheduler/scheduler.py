@@ -4,6 +4,7 @@ import time
 import os
 import re
 import utils.utils as utils
+from utils import logger
 
 BASE_DIR = os.path.dirname(__file__)
 
@@ -335,7 +336,8 @@ def check_and_repair_statement_blocks(statement_blocks, prompt, syntax_corrector
             total_errors += 1
         # attempts_made = k - retries  # kept locally if later needed
 
-        # TODO: log metrics to logfile. One log line per statement block.
+        # TODO: log metrics to logfile, one log line for each statement block.
+        logger.log(fix_attempt_count=k - retries, correct_syntax=fix_success)
 
     return statement_blocks, total_errors
 
