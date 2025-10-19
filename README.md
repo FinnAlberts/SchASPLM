@@ -27,6 +27,23 @@ Additionally, create a `.env` file in the main directory with your Huggingface A
 HF_KEY="your_huggingface_api_key"
 ```
 
+## Requirements — Local model with GPU
+
+For running a local model on a GPU (optionally including bitsandbytes in case quantization is desired):
+
+- Ensure CUDA is installed (version **12.4** was used).  
+- Install PyTorch with CUDA support:
+  ```bash
+  conda install pytorch pytorch-cuda=12.4 -c pytorch -c nvidia
+  ```
+- Install bitsandbytes (optional, for quantization):
+  ```bash
+  pip install --no-cache-dir --no-deps bitsandbytes==0.43.2
+  ```
+  *(Use `--no-deps` to prevent installing a pip version of torch next to the conda version.)*  
+- Make sure you have accepted the license terms for any gated model (e.g. Meta Llama 3) on Hugging Face:  
+  [https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct)
+
 ## Running the Code
 All code can be run from the jupyter notebooks in the main directory.
 
