@@ -336,8 +336,10 @@ def check_and_repair_statement_blocks(statement_blocks, prompt, syntax_corrector
             total_errors += 1
         # attempts_made = k - retries  # kept locally if later needed
 
-        # TODO: log metrics to logfile, one log line for each statement block.
-        logger.log(fix_attempt_count=k - retries, correct_syntax=fix_success)
+        # Log metrics to logfile, one log line for each statement block.
+        # ONLY log if the block is a program statement (not a comment or empty) - for correct metrics.
+        if utils.check_if_block_is_program_statement(stmt):
+            logger.log(fix_attempt_count=k - retries, correct_syntax=fix_success)
 
     return statement_blocks, total_errors
 

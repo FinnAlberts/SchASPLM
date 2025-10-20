@@ -289,6 +289,33 @@ def check_syntax_of_one_string(code: str):
 
     return error_message
 
+def check_if_block_is_program_statement(block: str) -> bool:
+    """
+    Return True if the given block is a program statement.
+
+    A block is NOT a program statement when:
+        - it's None, empty or only whitespace
+        - ALL trimmed lines are either empty or start with '%' (an ASP comment)
+
+    Args:
+        block: The text block to check.
+
+    Returns:
+        bool: True if it's a program statement, False otherwise.
+    """
+    if block is None:
+        return False
+
+    for raw_line in block.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        # If any non-empty trimmed line does NOT start with '%', it's a program statement
+        if not line.startswith('%'):
+            return True
+
+    return False
+
 if __name__ == "__main__":
     # Test program
     with open("./testfile.lp", "r", encoding='utf-8') as f:
