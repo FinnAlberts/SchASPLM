@@ -4,6 +4,7 @@ import time
 import os
 import re
 import utils.utils as utils
+from utils import logger
 
 BASE_DIR = os.path.dirname(__file__)
 
@@ -21,7 +22,17 @@ def read_system_prompt(file_path):
         system_prompt = file.read()
     return system_prompt
 
-def get_hard_constraints(hard_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False, k=0):
+
+def sleep_if_using_remote_clients(pipe, seconds=10):
+    """Sleep for `seconds` only if the provided pipe indicates a remote client.
+
+    Remote clients are represented by `pipe is None` (use HF API) or the
+    string `'deepseek'` (the Deepseek provider).
+    """
+    if pipe is None or pipe == 'deepseek':
+        time.sleep(seconds)
+
+def get_hard_constraints(hard_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False, k=0, temperature=None, top_p=None, seed=None, max_new_tokens=512):
     ''' Get hard constraints based on their descriptions. Uses different prompts based on the type of constraint.
 
     Args:
@@ -59,9 +70,13 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
                 },
                 pipe=pipe,
                 k=k,
-                printer=printer
+                printer=printer,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                max_new_tokens=max_new_tokens
             )
-            time.sleep(10)
+            sleep_if_using_remote_clients(pipe)
         elif 'type: sum' in constraint_description.lower():
             # Remove type: sum from the prompt
             constraint_description = constraint_description.replace('type: sum', '')
@@ -75,9 +90,13 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
                 },
                 pipe=pipe,
                 k=k,
-                printer=printer
+                printer=printer,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                max_new_tokens=max_new_tokens
             )
-            time.sleep(10)
+            sleep_if_using_remote_clients(pipe)
         else:
             hard_constraint = get_partial_program(
                 system_prompt_path='system_prompts/regular_hard_constraints.txt',
@@ -89,9 +108,13 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
                 },
                 pipe=pipe,
                 k=k,
-                printer=printer
+                printer=printer,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                max_new_tokens=max_new_tokens
             )
-            time.sleep(10)
+            sleep_if_using_remote_clients(pipe)
         
         # Append the generated hard constraint to the list
         hard_constraints.append(hard_constraint)
@@ -101,7 +124,7 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
     return hard_constraints
 
 # Get Soft Constraints
-def get_soft_constraints(soft_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False, k=0):
+def get_soft_constraints(soft_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False, k=0, temperature=None, top_p=None, seed=None, max_new_tokens=512):
     ''' Get soft constraints based on their descriptions. Uses different prompts based on the type of constraint.
 
     Args:
@@ -139,9 +162,13 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
                 },
                 pipe=pipe,
                 k=k,
-                printer=printer
+                printer=printer,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                max_new_tokens=max_new_tokens
             )
-            time.sleep(10)
+            sleep_if_using_remote_clients(pipe)
         elif 'type: sum' in constraint_description.lower():
             # Remove type: sum from the prompt
             constraint_description = constraint_description.replace('type: sum', '')
@@ -155,9 +182,13 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
                 },
                 pipe=pipe,
                 k=k,
-                printer=printer
+                printer=printer,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                max_new_tokens=max_new_tokens
             )
-            time.sleep(10)
+            sleep_if_using_remote_clients(pipe)
         else:
             soft_constraint = get_partial_program(
                 system_prompt_path='system_prompts/regular_soft_constraints.txt',
@@ -169,9 +200,13 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
                 },
                 pipe=pipe,
                 k=k,
-                printer=printer
+                printer=printer,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                max_new_tokens=max_new_tokens
             )
-            time.sleep(10)
+            sleep_if_using_remote_clients(pipe)
 
         # Append the generated soft constraint to the list
         soft_constraints.append(soft_constraint)
@@ -257,7 +292,82 @@ def extract_descriptions(problem):
    
     return problem_description, instance_description, generator_description, hard_constraint_descriptions, soft_constraint_descriptions
 
-def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, pipe=None, k=0, printer=False):
+
+def check_and_repair_statement_blocks(statement_blocks, prompt, syntax_corrector_bot, k, printer=False):
+    '''Check syntax for each statement block and attempt to repair using the provided syntax_corrector_bot.
+
+    Args:
+        statement_blocks (list): List of ASP statement block strings.
+        prompt (str): The original user prompt describing intended semantics (used in repair prompts).
+        syntax_corrector_bot (object): Bot to use for repair.
+        k (int): Number of retries per statement block.
+        printer (bool): Whether to print debug information.
+
+    Returns:
+        tuple: (updated_statement_blocks, total_errors)
+    '''
+    total_errors = 0
+
+    for idx, stmt in enumerate(statement_blocks):
+        syntax_error = utils.check_syntax_of_one_string(stmt)
+        retries = k  # Number of syntax repair retries left
+
+        if syntax_error:
+            # Try to repair the syntax k times
+            if printer:
+                print("================================================================================")
+                print(f'Initial response with syntax error:\n{stmt}\n\nError: {syntax_error}\n')
+                print(f" Starting syntax repair attempts...")
+                print("================================================================================")
+
+            while retries > 0 and syntax_error and syntax_corrector_bot is not None:
+                retries -= 1
+
+                # Create a prompt for repairing the syntax
+                repair_prompt = f"Intended semantics:\n{prompt}\n\nErroneous ASP code:\n{stmt}\n\nClingo error message:\n{syntax_error}"
+                stmt = syntax_corrector_bot.prompt(repair_prompt)
+
+                if printer:
+                    print("--------------------------------------------------------------------------------")
+                    print(f'Correction attempt {k - retries}:\n{stmt}\n')
+
+                # Failsafe to correct the bot if it returned multiple statements
+                while len(utils.split_ASP_code_into_statement_blocks(stmt)) > 1 and retries > 0:
+                    retries -= 1
+                    repair_prompt = "The previous response contained multiple statements, which is not allowed. Please provide only one corrected ASP code without any extra explanations."
+                    stmt = syntax_corrector_bot.prompt(repair_prompt)
+
+                    if printer:
+                        print("--------------------------------------------------------------------------------")
+                        print(f'Multiple statement blocks returned by LLM - Correction attempt {k - retries}:\n{stmt}\n')
+
+                # Check the syntax again
+                syntax_error = utils.check_syntax_of_one_string(stmt)
+
+                if printer:
+                    print("--------------------------------------------------------------------------------")
+                    if syntax_error:
+                        print(f'Syntax error still present: {syntax_error}\n')
+                    else:
+                        print(f'Syntax corrected successfully!\n')
+
+        # Replace the original statement with the (possibly) corrected one
+        statement_blocks[idx] = stmt
+
+        # Collect metrics (per statement block)
+        fix_success = not syntax_error
+        if not fix_success:
+            total_errors += 1
+        # attempts_made = k - retries  # kept locally if later needed
+
+        # Log metrics to logfile, one log line for each statement block.
+        # ONLY log if the block is a program statement (not a comment or empty) - for correct metrics.
+        if utils.check_if_block_is_program_statement(stmt):
+            logger.log(fix_attempt_count=k - retries, correct_syntax=fix_success)
+
+    return statement_blocks, total_errors
+
+def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, pipe=None, k=0, printer=False, temperature=None, top_p=None, seed=None, max_new_tokens=512):
     ''' Generate a partial ASP program based on a system prompt and variables.
 
     Args:
@@ -271,10 +381,8 @@ def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, 
     Returns:
         str: The generated partial ASP program as a string.
     '''
-
-    # Initialize response list and error list
-    responses = []
-    errors = []
+    # Total errors for metrics
+    total_errors = 0
 
     # Read the system prompt and replace variables
     system_prompt = read_system_prompt(system_prompt_path)
@@ -284,11 +392,11 @@ def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, 
         system_prompt = system_prompt.replace(f'<<{key}>>', value)
 
     # Load the bot and get the response
-    asp_generator_bot = bots.load_bot(system_prompt, pipe)
-    responses += [asp_generator_bot.prompt(prompt)]
+    asp_generator_bot = bots.load_bot(system_prompt, pipe, max_new_tokens=max_new_tokens, temperature=temperature, top_p=top_p, seed=seed)
+    initial_response = [asp_generator_bot.prompt(prompt)]
 
-    # Check if the response is syntactically correct ASP
-    errors += [utils.check_syntax(responses[-1].splitlines())]
+    # Split the response into separate statement blocks, so each can be syntax checked individually
+    statement_blocks = utils.split_ASP_code_into_statement_blocks(initial_response)
 
     # Create a repair prompt if k > 0
     if k > 0:
@@ -302,38 +410,47 @@ def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, 
         repair_prompt = re.sub(r'<<[^<>]*>>', 'None', repair_prompt)
 
         # Create a new bot for repairing the syntax
-        syntax_corrector_bot = bots.load_bot(repair_prompt, pipe)
+    syntax_corrector_bot = bots.load_bot(repair_prompt, pipe, max_new_tokens=max_new_tokens, temperature=temperature, top_p=top_p, seed=seed)
     
-    # Try to repair the syntax k times
-    while k > 0 and len(errors[-1]) > 0:
-        k -= 1
+    # Check syntax of each statement block individually and attempt to fix error
+    if k > 0:
+        # Use the previously created syntax_corrector_bot to repair statement blocks
+        statement_blocks, total_errors = check_and_repair_statement_blocks(
+            statement_blocks=statement_blocks,
+            prompt=prompt,
+            syntax_corrector_bot=syntax_corrector_bot,
+            k=k,
+            printer=printer
+        )
+    else:
+        # When no repairs are requested, still run a basic syntax check to count errors
+        for idx, stmt in enumerate(statement_blocks):
+            syntax_error = utils.check_syntax_of_one_string(stmt)
+            if syntax_error:
+                total_errors += 1
 
-        # Find only the error messages that belong to the generated lines
-        error_messages = [error["message"] for error in errors[-1] if error['code'].strip() in responses[-1].strip()]
+    # All statement blocks have been (attempted to be) fixed, combine them back into one program
+    resulting_program_part = '\n'.join(statement_blocks)
+    joined_initial_response = '\n'.join(initial_response)
 
-        # Create a prompt for repairing the syntax
-        repair_prompt = f"Intended semantics:\n{prompt}\n\nErroneous ASP code:\n{responses[-1]}\n\nClingo error messages:\n{error_messages}"
-        responses += [syntax_corrector_bot.prompt(repair_prompt)]
+    if printer:
+        if(resulting_program_part != joined_initial_response):
+            print("####################################################################################")
+            print(f"PROGRAM PART WAS REPAIRED {', BUT UN' if total_errors > 0 else ''}SUCCESSFULLY")
+            print(f'INITIAL RESPONSE:\n{joined_initial_response}\n\nREPAIRED RESPONSE:\n{resulting_program_part}\n')
+            print(f'Total statement blocks: {len(statement_blocks)}\n')
+            print(f'Total syntax errors remaining after repair attempts: {total_errors}\n')
+            print("####################################################################################")
+        else:
+            print("####################################################################################")
+            print("PROGRAM PART DID NOT NEED REPAIR!")
+            print(f'RESPONSE:\n{resulting_program_part}\n')
+            print(f'Total statement blocks: {len(statement_blocks)}\n')
+            print("####################################################################################")
+        
+    return(resulting_program_part)
 
-        # Check the syntax again (after adding instance template and generator to the program if present)
-        program = responses[-1]
-        for key, value in system_prompt_variables.items():
-            if key in ['generator', 'instance_template']:
-                program = value + '\n' + program
-
-        errors += [utils.check_syntax(program.splitlines())]
-
-    print("================================================================================") if printer else None
-    print(f'Final response after {len(responses)-1} retries with {len(errors[-1])} errors:\n{responses[-1]}\nErrors: {errors[-1]}') if printer else None
-    print("================================================================================") if printer else None
-    if len(responses) > 1 and printer:
-        for response, error in zip(responses, errors):
-            print(f'Response:\n{response}\nErrors:\n{error}\n')
-            print("--------------------------------------------------------------------------------")
-
-    return responses[-1]
-
-def full_ASP_program(problem, printer=False, pipe=None, k=0):
+def full_ASP_program(problem, printer=False, pipe=None, k=0, temperature=None, top_p=None, seed=None, max_new_tokens=512):
     ''' Generate a full ASP program based on the problem description.
 
     Args:
@@ -354,7 +471,11 @@ def full_ASP_program(problem, printer=False, pipe=None, k=0):
         prompt=instance_description,
         pipe=pipe,
         k=k,
-        printer=printer
+        printer=printer,
+        temperature=temperature,
+        top_p=top_p,
+        seed=seed,
+        max_new_tokens=max_new_tokens
     )
     print('Instance Template:\n' + instance_template) if printer else None
     
@@ -367,7 +488,11 @@ def full_ASP_program(problem, printer=False, pipe=None, k=0):
         },
         pipe=pipe,
         k=k,
-        printer=printer
+        printer=printer,
+        temperature=temperature,
+        top_p=top_p,
+        seed=seed,
+        max_new_tokens=max_new_tokens
     )
     print('\n\nGenerator\n' + generator) if printer else None
 
