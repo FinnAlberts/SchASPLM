@@ -465,10 +465,13 @@ def full_ASP_program(problem, printer=False, pipe=None, k=0, temperature=None, t
 
     problem_description, instance_description, generator_description, hard_constraint_descriptions, soft_constraint_descriptions = extract_descriptions(problem)
 
-    # Generate an instance template based on instance description
+    # Generate an instance template based on instance description (we still provide problem description for the repair prompt)
     instance_template = get_partial_program(
         system_prompt_path='system_prompts/instance.txt',
         prompt=instance_description,
+        system_prompt_variables={
+            'problem_description': problem_description
+        },
         pipe=pipe,
         k=k,
         printer=printer,
@@ -479,12 +482,13 @@ def full_ASP_program(problem, printer=False, pipe=None, k=0, temperature=None, t
     )
     print('Instance Template:\n' + instance_template) if printer else None
     
-    # Generate a generator based on generator description and instance template
+    # Generate a generator based on generator description and instance template (we still provide problem description for the repair prompt)
     generator = get_partial_program(
         system_prompt_path='system_prompts/generator.txt',
         prompt=generator_description,
         system_prompt_variables={
-            'instance_template': instance_template
+            'instance_template': instance_template,
+            'problem_description': problem_description
         },
         pipe=pipe,
         k=k,
