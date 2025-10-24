@@ -32,7 +32,7 @@ def sleep_if_using_remote_clients(pipe, seconds=10):
     if pipe is None or pipe == 'deepseek':
         time.sleep(seconds)
 
-def get_hard_constraints(hard_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False, k=0):
+def get_hard_constraints(hard_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False, k=0, temperature=None, top_p=None, seed=None, max_new_tokens=512):
     ''' Get hard constraints based on their descriptions. Uses different prompts based on the type of constraint.
 
     Args:
@@ -70,7 +70,11 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
                 },
                 pipe=pipe,
                 k=k,
-                printer=printer
+                printer=printer,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                max_new_tokens=max_new_tokens
             )
             sleep_if_using_remote_clients(pipe)
         elif 'type: sum' in constraint_description.lower():
@@ -86,7 +90,11 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
                 },
                 pipe=pipe,
                 k=k,
-                printer=printer
+                printer=printer,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                max_new_tokens=max_new_tokens
             )
             sleep_if_using_remote_clients(pipe)
         else:
@@ -100,7 +108,11 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
                 },
                 pipe=pipe,
                 k=k,
-                printer=printer
+                printer=printer,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                max_new_tokens=max_new_tokens
             )
             sleep_if_using_remote_clients(pipe)
         
@@ -112,7 +124,7 @@ def get_hard_constraints(hard_constraint_descriptions, problem_description, inst
     return hard_constraints
 
 # Get Soft Constraints
-def get_soft_constraints(soft_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False, k=0):
+def get_soft_constraints(soft_constraint_descriptions, problem_description, instance_template, generator, pipe=None, printer=False, k=0, temperature=None, top_p=None, seed=None, max_new_tokens=512):
     ''' Get soft constraints based on their descriptions. Uses different prompts based on the type of constraint.
 
     Args:
@@ -150,7 +162,11 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
                 },
                 pipe=pipe,
                 k=k,
-                printer=printer
+                printer=printer,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                max_new_tokens=max_new_tokens
             )
             sleep_if_using_remote_clients(pipe)
         elif 'type: sum' in constraint_description.lower():
@@ -166,7 +182,11 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
                 },
                 pipe=pipe,
                 k=k,
-                printer=printer
+                printer=printer,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                max_new_tokens=max_new_tokens
             )
             sleep_if_using_remote_clients(pipe)
         else:
@@ -180,7 +200,11 @@ def get_soft_constraints(soft_constraint_descriptions, problem_description, inst
                 },
                 pipe=pipe,
                 k=k,
-                printer=printer
+                printer=printer,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                max_new_tokens=max_new_tokens
             )
             sleep_if_using_remote_clients(pipe)
 
@@ -343,7 +367,7 @@ def check_and_repair_statement_blocks(statement_blocks, prompt, syntax_corrector
 
     return statement_blocks, total_errors
 
-def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, pipe=None, k=0, printer=False):
+def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, pipe=None, k=0, printer=False, temperature=None, top_p=None, seed=None, max_new_tokens=512):
     ''' Generate a partial ASP program based on a system prompt and variables.
 
     Args:
@@ -368,7 +392,7 @@ def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, 
         system_prompt = system_prompt.replace(f'<<{key}>>', value)
 
     # Load the bot and get the response
-    asp_generator_bot = bots.load_bot(system_prompt, pipe)
+    asp_generator_bot = bots.load_bot(system_prompt, pipe, max_new_tokens=max_new_tokens, temperature=temperature, top_p=top_p, seed=seed)
     initial_response = [asp_generator_bot.prompt(prompt)]
 
     # Split the response into separate statement blocks, so each can be syntax checked individually
@@ -386,7 +410,7 @@ def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, 
         repair_prompt = re.sub(r'<<[^<>]*>>', 'None', repair_prompt)
 
         # Create a new bot for repairing the syntax
-        syntax_corrector_bot = bots.load_bot(repair_prompt, pipe)
+    syntax_corrector_bot = bots.load_bot(repair_prompt, pipe, max_new_tokens=max_new_tokens, temperature=temperature, top_p=top_p, seed=seed)
     
     # Check syntax of each statement block individually and attempt to fix error
     if k > 0:
@@ -426,7 +450,7 @@ def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, 
         
     return(resulting_program_part)
 
-def full_ASP_program(problem, printer=False, pipe=None, k=0):
+def full_ASP_program(problem, printer=False, pipe=None, k=0, temperature=None, top_p=None, seed=None, max_new_tokens=512):
     ''' Generate a full ASP program based on the problem description.
 
     Args:
@@ -447,7 +471,11 @@ def full_ASP_program(problem, printer=False, pipe=None, k=0):
         prompt=instance_description,
         pipe=pipe,
         k=k,
-        printer=printer
+        printer=printer,
+        temperature=temperature,
+        top_p=top_p,
+        seed=seed,
+        max_new_tokens=max_new_tokens
     )
     print('Instance Template:\n' + instance_template) if printer else None
     
@@ -460,7 +488,11 @@ def full_ASP_program(problem, printer=False, pipe=None, k=0):
         },
         pipe=pipe,
         k=k,
-        printer=printer
+        printer=printer,
+        temperature=temperature,
+        top_p=top_p,
+        seed=seed,
+        max_new_tokens=max_new_tokens
     )
     print('\n\nGenerator\n' + generator) if printer else None
 
