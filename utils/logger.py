@@ -35,7 +35,8 @@ def _ensure_header():
     """
     if _filepath is None:
         return
-    expected_header = ['datetimestamp', 'max_fix_attempts (k)', 'problem_ID', 'statement_block', 'fix_attempt_count', 'correct_syntax']
+    
+    expected_header = ['datetimestamp', 'max_fix_attempts (k)', 'problem_ID', 'model', 'temperature', 'top_p', 'seed', 'statement_block', 'fix_attempt_count', 'correct_syntax']
     if not os.path.exists(_filepath) or os.path.getsize(_filepath) == 0:
         parent = os.path.dirname(_filepath)
         if parent:
@@ -45,7 +46,7 @@ def _ensure_header():
             writer.writerow(expected_header)
 
 
-def init_logger(filename: str, problem_ID: str, max_fix_attempts: int = 0) -> None:
+def init_logger(filename: str, problem_ID: str, max_fix_attempts: int = 0, *, model: str | None = None, temperature: float | None = None, top_p: float | None = None, seed: int | None = None) -> None:
     """Initialize module-level logger state.
 
     - filename: path to the CSV file (can include directories). Parent folder will be created automatically.
@@ -53,6 +54,8 @@ def init_logger(filename: str, problem_ID: str, max_fix_attempts: int = 0) -> No
     - max_fix_attempts: integer k (default 0)
     """
     global _folder, _filename, _filepath, _problem_ID, _time_stamp, _max_fix_attempts, _statement_block
+    # New optional module-level metadata
+    global _model, _temperature, _top_p, _seed
 
     _filename = filename
     # compute absolute path for clarity
@@ -66,6 +69,21 @@ def init_logger(filename: str, problem_ID: str, max_fix_attempts: int = 0) -> No
         _max_fix_attempts = 0
 
     _statement_block = 1
+
+    # store optional metadata for inclusion in each row
+    _model = str(model) if model is not None else None
+    try:
+        _temperature = float(temperature) if temperature is not None else None
+    except Exception:
+        _temperature = None
+    try:
+        _top_p = float(top_p) if top_p is not None else None
+    except Exception:
+        _top_p = None
+    try:
+        _seed = int(seed) if seed is not None else None
+    except Exception:
+        _seed = None
 
     _ensure_header()
 
@@ -81,7 +99,14 @@ def log(fix_attempt_count: int = 0, correct_syntax: bool = False) -> None:
         return
 
     correct_val = 1 if correct_syntax else 0
-    row = [_time_stamp, _max_fix_attempts, _problem_ID, _statement_block, fix_attempt_count, correct_val]
+    # Use stored metadata values; if None, write empty string for CSV cleanliness
+    model_val = _model if '_model' in globals() and _model is not None else ''
+    temp_val = _temperature if '_temperature' in globals() and _temperature is not None else ''
+    top_p_val = _top_p if '_top_p' in globals() and _top_p is not None else ''
+    seed_val = _seed if '_seed' in globals() and _seed is not None else ''
+
+    # New ordering: datetimestamp, max_fix_attempts (k), problem_ID, model, temperature, top_p, seed, statement_block, fix_attempt_count, correct_syntax
+    row = [_time_stamp, _max_fix_attempts, _problem_ID, model_val, temp_val, top_p_val, seed_val, _statement_block, fix_attempt_count, correct_val]
 
     with open(_filepath, 'a', newline='', encoding='utf-8') as fh:
         writer = csv.writer(fh)
