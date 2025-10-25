@@ -1,15 +1,17 @@
-"""Module-level CSV logger (convenience API only).
+"""Module-level CSV logger (convenience API).
 
 Usage:
     from utils import logger
-    logger.init_logger(folder, filename, problem_ID, max_fix_attempts=0)
-    logger.log(fix_attempt_count=1, correct_syntax=True)
+    logger.init_logger('path/to/log.csv', problem_ID='prob1', max_fix_attempts=3,
+                       model='gpt-4', temperature=0.2, top_p=1.0, seed=42)
+    logger.log('generation_type', fix_attempt_count=1, correct_syntax=True)
 
-This simplified logger maintains an internal statement_block counter (starts at 1 on init)
-and writes rows to CSV with header:
-    datetimestamp, max_fix_attempts (k), problem_ID, statement_block, fix_attempt_count, correct_syntax
+- filename is a path (directories will be created if needed).
+- init_logger resets an internal statement_block counter (starts at 1).
+- CSV header:
+    datetimestamp, max_fix_attempts (k), problem_ID, generation_type, model, temperature, top_p, seed, statement_block, fix_attempt_count, correct_syntax
 
-This module intentionally exposes only the convenience functions `init_logger` and `log`.
+This module exposes only init_logger and log.
 """
 from __future__ import annotations
 
@@ -36,7 +38,7 @@ def _ensure_header():
     if _filepath is None:
         return
     
-    expected_header = ['datetimestamp', 'max_fix_attempts (k)', 'problem_ID', 'model', 'temperature', 'top_p', 'seed', 'statement_block', 'fix_attempt_count', 'correct_syntax']
+    expected_header = ['datetimestamp', 'max_fix_attempts (k)', 'problem_ID', 'generation_type', 'model', 'temperature', 'top_p', 'seed', 'statement_block', 'fix_attempt_count', 'correct_syntax']
     if not os.path.exists(_filepath) or os.path.getsize(_filepath) == 0:
         parent = os.path.dirname(_filepath)
         if parent:
@@ -88,7 +90,11 @@ def init_logger(filename: str, problem_ID: str, max_fix_attempts: int = 0, *, mo
     _ensure_header()
 
 
-def log(fix_attempt_count: int = 0, correct_syntax: bool = False) -> None:
+def time_stamp() -> Optional[str]:
+    return _time_stamp
+
+
+def log(generation_type: str, fix_attempt_count: int = 0, correct_syntax: bool = False) -> None:
     """Append a single CSV row using the module-level logger state.
 
     If the logger hasn't been initialized, prints a message and does nothing.
@@ -104,9 +110,12 @@ def log(fix_attempt_count: int = 0, correct_syntax: bool = False) -> None:
     temp_val = _temperature if '_temperature' in globals() and _temperature is not None else ''
     top_p_val = _top_p if '_top_p' in globals() and _top_p is not None else ''
     seed_val = _seed if '_seed' in globals() and _seed is not None else ''
+    # generation_type is mandatory (string). Use empty string only if somehow None provided.
+    gen_val = generation_type if generation_type is not None else ''
 
-    # New ordering: datetimestamp, max_fix_attempts (k), problem_ID, model, temperature, top_p, seed, statement_block, fix_attempt_count, correct_syntax
-    row = [_time_stamp, _max_fix_attempts, _problem_ID, model_val, temp_val, top_p_val, seed_val, _statement_block, fix_attempt_count, correct_val]
+    # Ordering with generation_type after problem_ID (per request)
+    # datetimestamp, max_fix_attempts (k), problem_ID, generation_type, model, temperature, top_p, seed, statement_block, fix_attempt_count, correct_syntax
+    row = [_time_stamp, _max_fix_attempts, _problem_ID, gen_val, model_val, temp_val, top_p_val, seed_val, _statement_block, fix_attempt_count, correct_val]
 
     with open(_filepath, 'a', newline='', encoding='utf-8') as fh:
         writer = csv.writer(fh)
