@@ -396,6 +396,9 @@ def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, 
     asp_generator_bot = bots.load_bot(system_prompt, pipe, max_new_tokens=max_new_tokens, temperature=temperature, top_p=top_p, seed=seed)
     initial_response = [asp_generator_bot.prompt(prompt)]
 
+    # Remove any lines that start with triple backticks (```) - code-fence markers that some LLMs include around code blocks.
+    initial_response = [utils.remove_backtick_lines(initial_response[0])]
+
     # Split the response into separate statement blocks, so each can be syntax checked individually
     statement_blocks = utils.split_ASP_code_into_statement_blocks(initial_response)
 
