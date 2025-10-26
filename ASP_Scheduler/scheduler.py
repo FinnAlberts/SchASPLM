@@ -293,7 +293,7 @@ def extract_descriptions(problem):
     return problem_description, instance_description, generator_description, hard_constraint_descriptions, soft_constraint_descriptions
 
 
-def check_and_repair_statement_blocks(statement_blocks, prompt, syntax_corrector_bot, k, printer=False):
+def check_and_repair_statement_blocks(statement_blocks, prompt, syntax_corrector_bot, k, generation_type, printer=False):
     '''Check syntax for each statement block and attempt to repair using the provided syntax_corrector_bot.
 
     Args:
@@ -363,7 +363,8 @@ def check_and_repair_statement_blocks(statement_blocks, prompt, syntax_corrector
         # Log metrics to logfile, one log line for each statement block.
         # ONLY log if the block is a program statement (not a comment or empty) - for correct metrics.
         if utils.check_if_block_is_program_statement(stmt):
-            logger.log(fix_attempt_count=k - retries, correct_syntax=fix_success)
+            # generation_type is now required by the logger API and is provided by the caller
+            logger.log(generation_type, fix_attempt_count=k - retries, correct_syntax=fix_success)
 
     return statement_blocks, total_errors
 
@@ -412,6 +413,18 @@ def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, 
         # Create a new bot for repairing the syntax
     syntax_corrector_bot = bots.load_bot(repair_prompt, pipe, max_new_tokens=max_new_tokens, temperature=temperature, top_p=top_p, seed=seed)
     
+    # Determine generation_type for logging based on the system prompt file used. A bit hacky but works for now.
+    if 'instance' in system_prompt_path:
+        gen_type = 'instance'
+    elif 'generator' in system_prompt_path:
+        gen_type = 'generator'
+    elif 'hard_constraints' in system_prompt_path or 'hard constraints' in system_prompt_path:
+        gen_type = 'hard constraints'
+    elif 'soft_constraints' in system_prompt_path or 'soft constraints' in system_prompt_path:
+        gen_type = 'soft constraints'
+    else:
+        gen_type = 'unknown'
+
     # Check syntax of each statement block individually and attempt to fix error
     if k > 0:
         # Use the previously created syntax_corrector_bot to repair statement blocks
@@ -420,6 +433,7 @@ def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, 
             prompt=prompt,
             syntax_corrector_bot=syntax_corrector_bot,
             k=k,
+            generation_type=gen_type,
             printer=printer
         )
     else:
