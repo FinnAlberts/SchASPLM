@@ -25,6 +25,32 @@ def extract_json(string):
     
     return json_data
 
+
+def remove_backtick_lines(text):
+    """
+    Remove any lines that start with triple backticks (```) from the given text.
+
+    Accepts either a single string or a list (e.g., the `initial_response` list with
+    one string). Returns a cleaned string (lines joined with '\n'). Leading whitespace
+    is ignored when checking the line start.
+    """
+    if text is None:
+        return text
+
+    # If a list is passed (e.g., initial_response = [response_str]) combine into one string
+    if isinstance(text, list):
+        parts = []
+        for item in text:
+            if item is None:
+                continue
+            parts.append(item)
+        text = "\n".join(parts)
+
+    # Split into physical lines and filter
+    lines = text.splitlines()
+    filtered = [line for line in lines if not line.lstrip().startswith('```')]
+    return "\n".join(filtered)
+
 def extract_line_number_from_error(msg): # FINN: When error on end of line, it gives the next line as error line. Should we handle that? @George
     """
     Try to extract the line number from a Clingo error message.
