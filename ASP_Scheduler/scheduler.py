@@ -414,7 +414,7 @@ def get_partial_program(system_prompt_path, prompt, system_prompt_variables={}, 
         repair_prompt = re.sub(r'<<[^<>]*>>', 'None', repair_prompt)
 
         # Create a new bot for repairing the syntax
-    syntax_corrector_bot = bots.load_bot(repair_prompt, pipe, max_new_tokens=max_new_tokens, temperature=temperature, top_p=top_p, seed=seed)
+        syntax_corrector_bot = bots.load_bot(repair_prompt, pipe, max_new_tokens=max_new_tokens, temperature=temperature, top_p=top_p, seed=seed)
     
     # Determine generation_type for logging based on the system prompt file used. A bit hacky but works for now.
     if 'instance' in system_prompt_path:
